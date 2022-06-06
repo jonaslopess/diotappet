@@ -17,5 +17,11 @@ ip -6 route add default via dddd:`echo "obase=16;$GATEWAYROUTER"|bc`::2
 ip -6 route
 echo
 
+# Wait 6 delay times for Gateways + cooja + tunslip start
+sleep $(($DELAY * 6))
+
+# Start Client application passing all parameters
+python3.8 ipv6-echo-tester $GATEWAY $GATEWAYROUTER $MOTES $GATEWAYS $GATEWAYROUTERS $DATASIZE $REQUESTS $TIMEOUT $RPC
+
 # Keep Alive
-tail -f /var/log/dmesg
+#tail -f /var/log/dmesg

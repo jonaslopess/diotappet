@@ -1,0 +1,5 @@
+Client_1;0.05%;0.07%;5.125MiB / 7.646GiB;2;160kB / 139kB;274kB / 0B;6;8
+Gateway_1;43.51%;2.30%;180.2MiB / 7.646GiB;29;158kB / 136kB;1.3MB / 16.4kB;6;8
+Clients_Router_1;0.00%;0.01%;812KiB / 7.646GiB;2;322kB / 274kB;0B / 0B;6;8
+Gateways_Router_1;0.00%;0.01%;868KiB / 7.646GiB;2;320kB / 271kB;36.9kB / 0B;6;8
+Server;0.00%;0.01%;884KiB / 7.646GiB;2;25.9kB / 1.23kB;86kB / 0B;6;8

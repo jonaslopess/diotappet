@@ -1,0 +1,32 @@
+#!/bin/sh
+
+wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz
+tar -xf Python-3.8.0.tgz
+rm Python-3.8.0.tgz
+cd Python-3.8.0
+./configure --enable-optimizations
+make -j 8
+make altinstall
+cd ..
+pip3.8 install web3
+
+# Download contiki submodules
+cd contiki 
+git submodule update --init 
+
+# Build tunslip6
+cd tools
+make tunslip6
+
+# Build Cooja
+cd cooja
+ant jar
+
+# Build Border Router mote firmware
+cd /contiki/examples/ipv6/rpl-border-router 
+make TARGET=sky
+
+# Build echo-server mote firmware
+cd /contiki/examples/cc2538dk/udp-ipv6-echo-server
+make TARGET=sky
+

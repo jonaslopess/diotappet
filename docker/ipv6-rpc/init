@@ -1,0 +1,53 @@
+#!/bin/sh
+
+ip -6 route del default
+
+for i in $(seq 1 $CLIENTROUTERS)
+do		
+    ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+done
+
+for i in $(seq 1 $GATEWAYROUTERS)
+do
+    ip -6 route add dddd:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $i ))""|bc`
+done
+
+wasp-cli init
+wasp-cli set goshimmer.api $GOSHIMMER
+COMMITTEE=''
+for i in $(seq 1 $CLIENTROUTERS)
+do
+    for j in $(seq 1 $CLIENTS)
+    do
+        z="$(( $CLIENTS * ( $i - 1 ) + $j - 1 ))"
+        echo "Client $z"
+        
+        if [ $z = 0 ]
+        then 
+            COMMITTEE=$z
+        else 
+            COMMITTEE=$COMMITTEE","$z
+        fi
+        wasp-cli set wasp.`echo $z`.api `echo [cccc:$i::$(($j+2))]`:9090
+        wasp-cli set wasp.`echo $z`.nanomsg `echo [cccc:$i::$(($j+2))]`:5550
+        wasp-cli set wasp.`echo $z`.peering `echo [cccc:$i::$(($j+2))]`:4000
+        echo $COMMITTEE
+    done 
+done
+
+wasp-cli request-funds
+
+echo "Committee $COMMITTEE"
+(( NODES=$CLIENTROUTERS*$CLIENTS ))
+echo "Number of nodes $NODES"
+(( QUORUM=$NODES*2/3+1 ))
+echo "Quorum $QUORUM"
+wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --chain=diotappet --description="Test Chain of DIoTAppET"
+
+wasp-cli chain deposit IOTA:10000
+
+wasp-cli chain evm deploy -a diotappet --alloc 0xded98e256d2C56a801FAa6a26e37F7b0E1c77008:1000000000000000000000000
+
+wasp-cli chain evm jsonrpc
+
+#tail -f /var/log/dmesg

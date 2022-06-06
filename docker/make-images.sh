@@ -1,44 +1,43 @@
 #!/bin/sh
 
-cd xia-base
-
-sudo docker build -t xia-base:latest .
-
-cd ..
-
-cd xia-client
-
-sudo docker build -t xia-client:latest .
-
-cd ..
-
-cd xia-gateway
-
-sudo docker build -t xia-gateway:latest .
-
-cd ..
-
-cd xia-router
-
-sudo docker build -t xia-router:latest .
-
-cd ..
-
-cd xia-server
-
-sudo docker build -t xia-server:latest .
-
-cd ..
-
 cd ipv6-base
 
 sudo docker build -t ipv6-base:latest .
 
 cd ..
 
+cd wasp-base
+
+git clone https://github.com/iotaledger/wasp.git
+cd wasp
+rm Dockerfile
+cp ../Dockerfile Dockerfile
+
+sudo docker build -t wasp-base:latest .
+
+cd ../..
+
+#cd goshimmer-base
+
+#DOCKER_BUILDKIT=1 docker build -t goshimmer-base .
+
+#cd ..
+
+#cd ipv6-goshimmer-node
+
+#docker build -t ipv6-goshimmer-node:latest .
+
+#cd ..
+
 cd ipv6-client
 
-sudo docker build -t ipv6-client:latest .
+sudo docker build -t ipv6-node:latest .
+
+cd ..
+
+cd gateway-base
+
+sudo docker build -t gateway-base:latest .
 
 cd ..
 
@@ -54,8 +53,14 @@ sudo docker build -t ipv6-router:latest .
 
 cd ..
 
-cd ipv6-server
+#cd ipv6-server
 
-sudo docker build -t ipv6-server:latest .
+#sudo docker build -t ipv6-server:latest .
+
+#cd ..
+
+cd ipv6-rpc
+
+sudo docker build -t ipv6-rpc:latest .
 
 cd ..

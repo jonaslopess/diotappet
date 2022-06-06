@@ -1,7 +1,0 @@
-#!/bin/sh
-
-cd /
-chmod -R 777 xia-core
-cd xia-core
-./configure
-make

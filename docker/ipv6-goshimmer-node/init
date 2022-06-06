@@ -1,0 +1,6 @@
+#!/bin/sh
+ip -6 route del default
+ip -6 route add default via eeee::2
+
+# Keep Alive
+tail -f /dev/null

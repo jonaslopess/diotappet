@@ -1,0 +1,411 @@
+#!/bin/bash
+#
+# Copyright 2017 MonRá
+# Modified by Antonio M. Alberti 2021
+#
+
+DIOTAPPETDIR="$(cd "$(dirname "$0")" && pwd)"
+NAME=`basename $0`
+
+help()
+{
+	cat << EOF
+
+Start or stop the XIoT network testing services.
+
+usage: $NAME [-a] [-c <clients_per_router>] [-g <gateways_per_router>] [-m <motes_per_gateway>]
+             [-C <client_routers>] [-G <gateway_routers>] [-r <resquests>] [-l <data_size>]
+             [-t <timeout>] [-d <delay>] [-v <data_volume>] [start|stop|kill|prune|single|build|print]
+where:
+  -c Clients per Clients Routers
+  -g Gateways per Gateways Routers
+  -m Motes per Gateway
+  -C Client Routers
+  -G Gateway Routers
+  -l Data size (bytes) # Datagram Payload Size
+  -r Requests # Number of requests of each client
+  -t Timeout (s) # Gateway to UDP network. There is no timeout on XIA network
+  -v Data Volume # Folder name
+  -d Delay (s) # Base delay variable for initializations
+  -a Internet Architecture
+
+  start   - starts the networks and containers
+  stop    - stops all containers
+  kill    - kills all containers
+  prune   - prune networks and volumes
+  build   - build images
+  print   - prints configuration
+  single  - start in a single network (no routers)
+  stats   - show formated docker stats
+
+EOF
+	exit 0
+}
+
+setup()
+{
+	CLIENTS=1
+	CLIENTROUTERS=1
+	GATEWAYS=1
+	GATEWAYROUTERS=1
+	MOTES=9
+	TIMEOUT=3
+	DATASIZE=8
+	REQUESTS=100
+	DELAY=10
+
+	FIA=ipv6
+
+	DATAVOLUME=diotappet
+
+	local OPTARG=$2
+
+	while getopts "c:g:C:G:m:d:t:r:v:l:a:" opt; do
+		case $opt in
+			c)
+				CLIENTS=$OPTARG
+				;;
+			g)
+				GATEWAYS=$OPTARG
+				;;
+			C)
+				CLIENTROUTERS=$OPTARG
+				;;
+			G)
+				GATEWAYROUTERS=$OPTARG
+				;;
+			m)
+				MOTES=$OPTARG
+				;;
+			d)
+				DELAY=$OPTARG
+				;;
+			t)
+				TIMEOUT=$OPTARG
+				;;
+			r)
+				REQUESTS=$OPTARG
+				;;
+			v)
+				DATAVOLUME=$OPTARG
+				;;
+			l)
+				DATASIZE=$OPTARG
+				;;
+			a)
+				FIA=$OPTARG
+				;;
+			h)
+				help
+				;;
+			\?)
+				printf "\nInvalid option: -$OPTARG\n" >&2
+				help
+				;;
+		esac
+	done
+
+	CLIENTIMAGE=$FIA-node
+	GATEWAYIMAGE=$FIA-gateway
+	CLIENTROUTERIMAGE=$FIA-router
+	GATEWAYROUTERIMAGE=$FIA-router
+	SERVERIMAGE=$FIA-server
+}
+
+print_config()
+{
+
+	TotalClients="$(( $CLIENTS * $CLIENTROUTERS ))"
+	TotalGateways="$(( $GATEWAYS * $GATEWAYROUTERS ))"
+	Total="$(( $CLIENTS * $CLIENTROUTERS  +  $GATEWAYS * $GATEWAYROUTERS + 1 + $CLIENTROUTERS + $GATEWAYROUTERS ))"
+
+
+	echo
+	echo "Config:"
+	echo
+	echo "Clients: $CLIENTS"
+	echo "Gateways: $GATEWAYS"
+	echo "Client Routers: $CLIENTROUTERS"
+	echo "Gateway Routers: $GATEWAYROUTERS"
+	echo "Motes: $MOTES"
+	echo "Timeout: $TIMEOUT s"
+	echo "Requests: $REQUESTS"
+	echo "Datasize: $DATASIZE bytes"
+	echo "Delay: $DELAY s"
+	echo "UDP Timeout: $TIMEOUT s"
+	echo "Total number of Clients is: $TotalClients"
+	echo "Total number of Gateways is: $TotalGateways"
+	echo "Total number of containers is: $Total"
+	echo "Results at dir: $DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS"
+	echo
+	echo "Internet Architecture: $FIA"
+	echo
+	echo "Server Image: $SERVERIMAGE"
+	echo "Gateway Router Image: $GATEWAYROUTERIMAGE"
+	echo "Client Router Image: $CLIENTROUTERIMAGE"
+	echo "Gateway Image: $GATEWAYIMAGE"
+	echo "Client Image: $CLIENTIMAGE"
+	echo
+	echo "Data Volume: $DATAVOLUME"
+	echo "Host Name: $HOSTNAME"
+}
+
+stop_all()
+{
+	echo "Stoping containers"
+	docker stop $(docker ps -a -q)
+	docker rm $(docker ps -a -q)
+	echo
+}
+
+kill_all()
+{
+	echo "Stoping containers"
+	docker kill $(docker ps -a -q)
+	docker rm $(docker ps -a -q)
+	echo
+}
+
+prune_networks()
+{
+	docker network prune --force
+}
+
+prune_volumes()
+{
+	echo "Deleting Volume"
+	docker volume rm $DATAVOLUME
+	echo
+	docker volume prune --force
+}
+
+build_all()
+{
+	cd $DIOTAPPETDIR/docker
+
+	cd $FIA-base
+	docker build -t $FIA-base .
+	cd ..
+
+	cd $SERVERIMAGE
+	docker build -t $SERVERIMAGE .
+	cd ..
+
+	cd $GATEWAYROUTERIMAGE
+	docker build -t $GATEWAYROUTERIMAGE .
+	cd ..
+
+	cd $CLIENTROUTERIMAGE
+	docker build -t $CLIENTROUTERIMAGE .
+	cd ..
+
+	cd $GATEWAYIMAGE
+	docker build -t $GATEWAYIMAGE .
+	cd ..
+
+	cd $CLIENTIMAGE
+	docker build -t $CLIENTIMAGE .
+	cd ..
+}
+
+star_topology()
+{
+
+	echo "Data Volume"
+	docker volume create $DATAVOLUME
+	echo
+
+	echo "Core Network"
+	docker network create --ipv6 --subnet=bbbb::/64 Core_Network
+	sysctl net.ipv6.conf.all.forwarding=0
+	echo
+
+	#echo "Server"
+	#docker run -v $DATAVOLUME:/$DATAVOLUME -itd --privileged -e DELAY=$DELAY -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTS=$CLIENTS --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --net=Server_Network --name Server $SERVERIMAGE
+	#echo
+
+	#echo "Goshimmer Network"
+	#docker network create --ipv6 --subnet=eeee::/64 Goshimmer_Network
+	#sysctl net.ipv6.conf.all.forwarding=0
+	#echo
+	#echo "Goshimmer Router"
+	#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e ROUTE=goshimmer --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Goshimmer_Network --name Goshimmer_Router $CLIENTROUTERIMAGE
+	#docker network connect Server_Network Goshimmer_Router
+	#echo
+
+	for i in $(seq 1 $GATEWAYROUTERS)
+	do
+		echo "Gateways Network $i"
+		docker network create --ipv6 --subnet=dddd:$i::/64 Gateways_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
+		echo
+		echo "Gateways Router $i"
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYS=$GATEWAYS -e GATEWAYSROUTER=$i -e ROUTE=gateways --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Gateways_Network_$i --name Gateways_Router_$i $GATEWAYROUTERIMAGE
+		docker network connect Core_Network Gateways_Router_$i
+		echo
+	done
+
+	for i in $(seq 1 $CLIENTROUTERS)
+	do
+		echo "Nodes Network $i"
+		docker network create --ipv6 --subnet=cccc:$i::/64 Nodes_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
+		echo
+		echo "Nodes Router $i"
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e ROUTE=clients --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
+		docker network connect Core_Network Nodes_Router_$i
+		echo
+	done
+
+	#echo "Goshimmer Node"
+	#cd docker/goshimmer-base/tools/docker-network
+	#./run.sh 3 0 0
+	#cd ../../../..	
+	#docker run -v $DATAVOLUME:/$DATAVOLUME -itd --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Goshimmer_Network --name Goshimmer_Master ipv6-goshimmer-node
+	#echo 
+
+	#GIP=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Goshimmer_Master)]:5000
+	GIP=goshimmer.sc.iota.org:5000
+	echo "Goshimmer Master: $GIP"
+	echo
+	
+	for i in $(seq 1 $CLIENTROUTERS)
+	do
+		for j in $(seq 1 $CLIENTS)
+		do
+			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
+			echo "Client $z"
+			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Node_$z $CLIENTIMAGE
+			echo
+		done
+	done
+
+	GIP=https://api.goshimmer.sc.iota.org
+	echo "Goshimmer API: $GIP"
+	echo
+
+	echo "RPC provider"
+	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
+	echo
+
+	RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
+	RPC="http://$RPC"
+
+	echo "RPC url: $RPC"
+	echo
+
+	for i in $(seq 1 $GATEWAYROUTERS)
+	do
+		for j in $(seq 1 $GATEWAYS)
+		do
+	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
+	   		echo "Gateway $z"
+	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+	   		echo
+	   	done
+	done
+
+	
+
+}
+
+single_network()
+{
+	echo "Starting Server"
+	docker run -itd xia-server
+	echo
+	for i in `seq 1 $GATEWAYS`;
+	do
+		echo "Starting Gateway"
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e MOTES=$MOTES -e GATEWAYROUTER=1 -e GATEWAY=$i --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --name Gateway_$i $GATEWAYIMAGE
+		echo
+	done
+	for i in `seq 1 $CLIENTS`;
+	do
+		echo "Starting Client"
+		docker run -itd -v $DATAVOLUME:/$DATAVOLUME -e CLIENT=$i -e CLIENTROUTER=1 -e DELAY=$DELAY -e MOTES=$MOTES -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=1 -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Client_$i $CLIENTIMAGE
+		echo
+	done
+}
+
+stats()
+{
+	docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}\t{{.PIDs}}\t{{.NetIO}}\t{{.BlockIO}}"
+}
+
+collect()
+{
+	START_TIME=$SECONDS
+	mkdir -p "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS"
+	while [ $(docker stats --format "table {{.Name}}" --no-stream | grep -c Gateway_) != '0' ]
+	do
+		CPU=$(top -bn 2 | grep '^%Cpu' | tail -n 1 | gawk '{print $2+$4+$6}')
+		ELAPSED_TIME=$(($SECONDS - $START_TIME))
+		echo "Test running..."
+		echo
+		echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
+		echo
+		echo "CPU Usage: "$CPU%
+		docker stats --format "{{.Name}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.PIDs}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/running-stats.csv"
+		for d in `docker ps -q`; do
+			d_name=`docker inspect -f {{.Name}} $d`
+			echo "$d_name ($d) container size:"
+			docker ps --format "{{.Names}};{{.Size}}" >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/size-stats.csv"
+		done
+	done
+	print_config
+	echo "Test ended!"
+	echo
+	echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
+	echo
+	sudo cp /var/lib/docker/volumes/$DATAVOLUME/_data/*.csv "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/"
+	stop_all
+	prune_networks
+	prune_volumes
+}
+
+#
+# SCRIPT STARTS HERE
+#
+setup $@
+shift $((OPTIND-1))
+
+case $1 in
+	single)
+		print_config
+		single_network
+		collect
+		;;
+	print)
+		print_config
+		;;
+	stats)
+		stats
+		;;
+	start)
+		print_config
+		star_topology
+		collect
+		;;
+	build)
+		build_all
+		;;
+	prune)
+		prune_networks
+		prune_volumes
+		;;
+	stop)
+		stop_all
+		prune_networks
+		prune_volumes
+		;;
+	kill)
+		kill_all
+		prune_networks
+		prune_volumes
+		;;
+	*)
+		printf "\nInvalid command\n" >&2
+		help
+		;;
+esac
