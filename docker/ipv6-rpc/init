@@ -38,10 +38,13 @@ done
 wasp-cli request-funds
 
 echo "Committee $COMMITTEE"
-(( NODES=$CLIENTROUTERS*$CLIENTS ))
+NODES="$(( $CLIENTROUTERS*$CLIENTS ))"
 echo "Number of nodes $NODES"
-(( QUORUM=$NODES*2/3+1 ))
+QUORUM="$(( $NODES*2/3+1 ))"
 echo "Quorum $QUORUM"
+
+sleep $(($DELAY * 1))
+
 wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --chain=diotappet --description="Test Chain of DIoTAppET"
 
 wasp-cli chain deposit IOTA:10000

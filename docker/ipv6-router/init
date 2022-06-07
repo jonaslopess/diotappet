@@ -29,6 +29,13 @@ if [ 'clients' = $ROUTE ]
 			ip -6 route add aaaa:`echo "obase=16;$i"|bc`:`echo "obase=16;$j"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $i ))""|bc`
 		done
 	done
+	for i in $(seq 1 $CLIENTROUTERS)
+	do		
+		if [ $i != $CLIENTROUTER ]
+		then
+			ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+		fi
+	done
 fi
 
 #if [ 'goshimmer' = $ROUTE ]

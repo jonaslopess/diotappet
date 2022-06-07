@@ -252,7 +252,7 @@ star_topology()
 		sysctl net.ipv6.conf.all.forwarding=0
 		echo
 		echo "Nodes Router $i"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e ROUTE=clients --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTROUTER=$i -e ROUTE=clients --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
 		docker network connect Core_Network Nodes_Router_$i
 		echo
 	done
@@ -280,13 +280,57 @@ star_topology()
 		done
 	done
 
+	sleep 3
+
+	for i in $(seq 1 $CLIENTROUTERS)
+	do
+		for j in $(seq 1 $CLIENTS)
+		do
+			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
+			docker exec Node_$z wasp-cli peering info > nodes-info/peeringinfo_$z.txt
+			echo
+		done
+	done
+
+	
 	GIP=https://api.goshimmer.sc.iota.org
 	echo "Goshimmer API: $GIP"
 	echo
 
 	echo "RPC provider"
-	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
+	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
 	echo
+
+	echo "Trust setup"
+	for x in $(seq 1 $CLIENTROUTERS)
+	do
+		for y in $(seq 1 $CLIENTS)
+		do
+			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
+			docker exec Node_$z wasp-cli peering trust $PUBKEY [bbbb::6]:4000
+			for i in $(seq 1 $CLIENTROUTERS)
+			do
+				for j in $(seq 1 $CLIENTS)
+				do
+					w="$(( $CLIENTS * ( $i - 1 ) + $j ))"
+					if [ $w != $z ]
+					then
+						TEMP=$(head nodes-info/peeringinfo_$w.txt)
+						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+						docker exec Node_$z wasp-cli peering trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000
+						echo "Node_$z trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000"
+						echo
+					fi
+				done
+			done
+			docker exec Node_$z wasp-cli peering list-trusted
+			echo
+		done
+	done
+	echo "Rpc trust"
+	docker exec Rpc wasp-cli peering list-trusted
+	echo
+
 
 	RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
 	RPC="http://$RPC"
@@ -300,13 +344,10 @@ star_topology()
 		do
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
-	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+	   		#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
 	   		echo
 	   	done
 	done
-
-	
-
 }
 
 single_network()
@@ -348,8 +389,6 @@ collect()
 		echo "CPU Usage: "$CPU%
 		docker stats --format "{{.Name}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.PIDs}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/running-stats.csv"
 		for d in `docker ps -q`; do
-			d_name=`docker inspect -f {{.Name}} $d`
-			echo "$d_name ($d) container size:"
 			docker ps --format "{{.Names}};{{.Size}}" >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/size-stats.csv"
 		done
 	done
@@ -385,7 +424,7 @@ case $1 in
 	start)
 		print_config
 		star_topology
-		collect
+		#collect
 		;;
 	build)
 		build_all
