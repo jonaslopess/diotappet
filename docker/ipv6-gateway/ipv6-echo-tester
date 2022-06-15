@@ -127,7 +127,7 @@ def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
 
 			nonce = web3.eth.getTransactionCount(ACCOUNT)
 			tx_dict = contract.functions.setMonitoringValue(
-				PROPERTY,
+				#PROPERTY,
 				data
 			).buildTransaction({
 				'chainId' : CHAIN_ID,
@@ -142,7 +142,8 @@ def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
 			end = time.time()
 		
 			tx_time = end-start
-			value = contract.functions.getMonitoringValue(PROPERTY).call()
+			#value = contract.functions.getMonitoringValue(PROPERTY).call()
+			value = contract.functions.getMonitoringValue().call()
 
 			return [tx_time, value, tx_receipt.gasUsed]
 
@@ -182,7 +183,7 @@ def echotester():
 	print("RPC_URL: ",RPC_URL)
 	
 	CONTRACT_ADDRESS = deploy_contract(RPC_URL)
-	add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS)
+	#add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS)
 
 	if  not check_contract(RPC_URL,CONTRACT_ADDRESS):
 		print("Contract problem. Exiting...")

@@ -301,35 +301,35 @@ star_topology()
 	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
 	echo
 
-	echo "Trust setup"
-	for x in $(seq 1 $CLIENTROUTERS)
-	do
-		for y in $(seq 1 $CLIENTS)
-		do
-			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
-			docker exec Node_$z wasp-cli peering trust $PUBKEY [bbbb::6]:4000
-			for i in $(seq 1 $CLIENTROUTERS)
-			do
-				for j in $(seq 1 $CLIENTS)
-				do
-					w="$(( $CLIENTS * ( $i - 1 ) + $j ))"
-					if [ $w != $z ]
-					then
-						TEMP=$(head nodes-info/peeringinfo_$w.txt)
-						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-						docker exec Node_$z wasp-cli peering trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000
-						echo "Node_$z trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000"
-						echo
-					fi
-				done
-			done
-			docker exec Node_$z wasp-cli peering list-trusted
-			echo
-		done
-	done
-	echo "Rpc trust"
-	docker exec Rpc wasp-cli peering list-trusted
-	echo
+#	echo "Trust setup"
+#	for x in $(seq 1 $CLIENTROUTERS)
+#	do
+#		for y in $(seq 1 $CLIENTS)
+#		do
+#			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
+#			docker exec Node_$z wasp-cli peering trust $PUBKEY [bbbb::6]:4000
+#			for i in $(seq 1 $CLIENTROUTERS)
+#			do
+#				for j in $(seq 1 $CLIENTS)
+#				do
+#					w="$(( $CLIENTS * ( $i - 1 ) + $j ))"
+#					if [ $w != $z ]
+#					then
+#						TEMP=$(head nodes-info/peeringinfo_$w.txt)
+#						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+#						docker exec Node_$z wasp-cli peering trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000
+#						echo "Node_$z trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000"
+#						echo
+#					fi
+#				done
+#			done
+#			docker exec Node_$z wasp-cli peering list-trusted
+#			echo
+#		done
+#	done
+#	echo "Rpc trust"
+#	docker exec Rpc wasp-cli peering list-trusted
+#	echo
 
 
 	RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
@@ -344,7 +344,7 @@ star_topology()
 		do
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
-	   		#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
 	   		echo
 	   	done
 	done
@@ -424,7 +424,7 @@ case $1 in
 	start)
 		print_config
 		star_topology
-		#collect
+		collect
 		;;
 	build)
 		build_all

@@ -5,7 +5,44 @@
 		"type": "constructor"
 	},
 	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_keyWord",
+				"type": "string"
+			},
+			{
+				"internalType": "string",
+				"name": "_description",
+				"type": "string"
+			}
+		],
+		"name": "addMonitoringCpability",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
 		"inputs": [],
+		"name": "getMonitoringCapabilities",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_keyWord",
+				"type": "string"
+			}
+		],
 		"name": "getMonitoringValue",
 		"outputs": [
 			{
@@ -32,6 +69,11 @@
 	},
 	{
 		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_keyWord",
+				"type": "string"
+			},
 			{
 				"internalType": "int256",
 				"name": "_value",
