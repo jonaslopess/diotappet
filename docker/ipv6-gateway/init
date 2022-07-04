@@ -12,8 +12,11 @@ sleep $(($DELAY * 3))
 sleep $(($DELAY * 1))
 
 echo
-ip -6 route del default
-ip -6 route add default via dddd:`echo "obase=16;$GATEWAYROUTER"|bc`::2
+ip route del default
+ip route add default via 172.25.$GATEWAYROUTER.2
+
+#ip -6 route del default
+#ip -6 route add default via dddd:`echo "obase=16;$GATEWAYROUTER"|bc`::2
 ip -6 route
 echo
 

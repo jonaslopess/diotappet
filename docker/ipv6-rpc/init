@@ -1,15 +1,18 @@
 #!/bin/sh
 
-ip -6 route del default
+#ip -6 route del default
+#ip route del default
 
 for i in $(seq 1 $CLIENTROUTERS)
 do		
-    ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+    #ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+    ip route add 172.26.$i.0/24 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
 done
 
 for i in $(seq 1 $GATEWAYROUTERS)
 do
-    ip -6 route add dddd:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $i ))""|bc`
+    #ip -6 route add dddd:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $i ))""|bc`
+    ip route add 172.25.$i.0/24 via 172.24.0.$(( 1 + $i ))
 done
 
 wasp-cli init
@@ -28,9 +31,12 @@ do
         else 
             COMMITTEE=$COMMITTEE","$z
         fi
-        wasp-cli set wasp.`echo $z`.api `echo [cccc:$i::$(($j+2))]`:9090
-        wasp-cli set wasp.`echo $z`.nanomsg `echo [cccc:$i::$(($j+2))]`:5550
-        wasp-cli set wasp.`echo $z`.peering `echo [cccc:$i::$(($j+2))]`:4000
+        #wasp-cli set wasp.`echo $z`.api `echo [cccc:$i::$(($j+2))]`:9090
+        wasp-cli set wasp.$z.api 172.26.$i.$(($j+2)):9090
+        #wasp-cli set wasp.`echo $z`.nanomsg `echo [cccc:$i::$(($j+2))]`:5550
+        wasp-cli set wasp.$z.nanomsg 172.26.$i.$(($j+2)):5550
+        #wasp-cli set wasp.`echo $z`.peering `echo [cccc:$i::$(($j+2))]`:4000
+        wasp-cli set wasp.$z.peering 172.26.$i.$(($j+2)):4000
         echo $COMMITTEE
     done 
 done
@@ -43,7 +49,7 @@ echo "Number of nodes $NODES"
 QUORUM="$(( $NODES*2/3+1 ))"
 echo "Quorum $QUORUM"
 
-sleep $(($DELAY * 1))
+sleep $(($DELAY * 2))
 
 wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --chain=diotappet --description="Test Chain of DIoTAppET"
 

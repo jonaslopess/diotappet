@@ -54,7 +54,7 @@ setup()
 	REQUESTS=100
 	DELAY=10
 
-	FIA=ipv4
+	FIA=ipv6
 
 	DATAVOLUME=diotappet
 
@@ -105,11 +105,11 @@ setup()
 		esac
 	done
 
-	CLIENTIMAGE=node
-	GATEWAYIMAGE=gateway
-	CLIENTROUTERIMAGE=router
-	GATEWAYROUTERIMAGE=router
-	SERVERIMAGE=server
+	CLIENTIMAGE=$FIA-node
+	GATEWAYIMAGE=$FIA-gateway
+	CLIENTROUTERIMAGE=$FIA-router
+	GATEWAYROUTERIMAGE=$FIA-router
+	SERVERIMAGE=$FIA-server
 }
 
 print_config()
@@ -216,7 +216,8 @@ star_topology()
 	echo
 
 	echo "Core Network"
-	docker network create --subnet=172.24.0.0/24 Core_Network
+	docker network create --ipv6 --subnet=bbbb::/64 Core_Network
+	sysctl net.ipv6.conf.all.forwarding=0
 	echo
 
 	#echo "Server"
@@ -235,10 +236,11 @@ star_topology()
 	for i in $(seq 1 $GATEWAYROUTERS)
 	do
 		echo "Gateways Network $i"
-		docker network create --subnet=172.25.$(( $i )).0/24 Gateways_Network_$i
+		docker network create --ipv6 --subnet=dddd:$i::/64 Gateways_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
 		echo
 		echo "Gateways Router $i"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYS=$GATEWAYS -e GATEWAYSROUTER=$i -e ROUTE=gateways --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Gateways_Network_$i --name Gateways_Router_$i $GATEWAYROUTERIMAGE
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYS=$GATEWAYS -e GATEWAYSROUTER=$i -e ROUTE=gateways --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Gateways_Network_$i --name Gateways_Router_$i $GATEWAYROUTERIMAGE
 		docker network connect Core_Network Gateways_Router_$i
 		echo
 	done
@@ -246,10 +248,11 @@ star_topology()
 	for i in $(seq 1 $CLIENTROUTERS)
 	do
 		echo "Nodes Network $i"
-		docker network create --subnet=172.26.$(( $i )).0/24 Nodes_Network_$i
+		docker network create --ipv6 --subnet=cccc:$i::/64 Nodes_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
 		echo
 		echo "Nodes Router $i"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTROUTER=$i -e ROUTE=clients --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTROUTER=$i -e ROUTE=clients --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
 		docker network connect Core_Network Nodes_Router_$i
 		echo
 	done
@@ -272,7 +275,7 @@ star_topology()
 		do
 			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
 			echo "Client $z"
-			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --name Node_$z $CLIENTIMAGE
+			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Node_$z $CLIENTIMAGE
 			echo
 		done
 	done
@@ -295,7 +298,7 @@ star_topology()
 	echo
 
 	echo "RPC provider"
-	#docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --name Rpc rpc
+	#docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
 	echo
 
 	echo "Trust setup"
@@ -304,7 +307,7 @@ star_topology()
 		for y in $(seq 1 $CLIENTS)
 		do
 			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
-			#docker exec Node_$z wasp-cli peering trust $PUBKEY 172.24.0.$((1+$CLIENTROUTERS+$GATEWAYROUTERS)):4000
+			docker exec Node_$z wasp-cli peering trust $PUBKEY [bbbb::6]:4000
 			for i in $(seq 1 $CLIENTROUTERS)
 			do
 				for j in $(seq 1 $CLIENTS)
@@ -314,8 +317,8 @@ star_topology()
 					then
 						TEMP=$(head nodes-info/peeringinfo_$w.txt)
 						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-						docker exec Node_$z wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
-						echo "Node_$z trust $PUBKEY 172.26.$i.$(( $j+2 )):4000"
+						docker exec Node_$z wasp-cli peering trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000
+						echo "Node_$z trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000"
 						echo
 					fi
 				done
