@@ -69,8 +69,10 @@ def deploy_contract(RPC_URL):
 			return tx_receipt.contractAddress
 		except:
 			print("Error to create SC")
+			return False
 	else:
 		print(RPC_URL, "Connection error")
+		return False
 
 def add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS):
 	print("Adding monitoring capability...")
@@ -126,6 +128,7 @@ def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
 			start = time.time()
 
 			nonce = web3.eth.getTransactionCount(ACCOUNT)
+			print("Nonce:", nonce)
 			tx_dict = contract.functions.setMonitoringValue(
 				#PROPERTY,
 				data
@@ -182,12 +185,23 @@ def echotester():
 	
 	print("RPC_URL: ",RPC_URL)
 	
-	CONTRACT_ADDRESS = deploy_contract(RPC_URL)
-	#add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS)
+	CONTRACT_ADDRESS = False
+	trying = 0
+
+	while (not CONTRACT_ADDRESS) and (trying < 5):
+		trying += 1
+		print("Contract creation problem. Trying again...", trying)
+		CONTRACT_ADDRESS = deploy_contract(RPC_URL)
+
+	if trying >= 5:
+		print("Contract creation problem. Exiting...")
+		return
 
 	if  not check_contract(RPC_URL,CONTRACT_ADDRESS):
 		print("Contract problem. Exiting...")
 		return
+
+	#add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS)
 	
 	REQ = 0
 	INITIAL = time.time()
