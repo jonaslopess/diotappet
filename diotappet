@@ -261,8 +261,17 @@ star_topology()
 	#docker run -v $DATAVOLUME:/$DATAVOLUME -itd --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Goshimmer_Network --name Goshimmer_Master ipv6-goshimmer-node
 	#echo 
 
-	#GIP=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Goshimmer_Master)]:5000
-	GIP=goshimmer.sc.iota.org:5000
+	echo "Goshimmer Node"
+	docker volume create goshimmer-db
+	docker run -v goshimmer-db:/tmp/devnetdb -itd -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Core_Network --name Devnet_Goshimmer goshimmer:corenode
+	#cd docker/goshimmer
+	#docker-compose up -d
+	#cd ../..
+
+
+
+	GIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Devnet_Goshimmer):5000
+	#GIP=goshimmer.sc.iota.org:5000
 	echo "Goshimmer Master: $GIP"
 	echo
 	
@@ -272,10 +281,21 @@ star_topology()
 		do
 			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
 			echo "Client $z"
-			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --name Node_$z $CLIENTIMAGE
+			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --name Node_$z $CLIENTIMAGE
 			echo
 		done
 	done
+
+	sleep 3
+
+	#GAPI=https://api.goshimmer.sc.iota.org
+	GAPI=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Devnet_Goshimmer):8080
+	echo "Goshimmer API: $GAPI"
+	echo
+
+	echo "RPC provider"
+	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMERAPI=$GAPI -e TXSTREAM=$GIP --privileged --name Rpc rpc
+	echo
 
 	sleep 3
 
@@ -289,14 +309,7 @@ star_topology()
 		done
 	done
 
-	
-	GIP=https://api.goshimmer.sc.iota.org
-	echo "Goshimmer API: $GIP"
-	echo
-
-	echo "RPC provider"
-	#docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --name Rpc rpc
-	echo
+	docker exec Rpc wasp-cli peering info > nodes-info/peeringinfo_Rpc.txt
 
 	echo "Trust setup"
 	for x in $(seq 1 $CLIENTROUTERS)
@@ -304,7 +317,15 @@ star_topology()
 		for y in $(seq 1 $CLIENTS)
 		do
 			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
-			#docker exec Node_$z wasp-cli peering trust $PUBKEY 172.24.0.$((1+$CLIENTROUTERS+$GATEWAYROUTERS)):4000
+			
+			TEMP=$(head nodes-info/peeringinfo_Rpc.txt)
+			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+			docker exec Node_$z wasp-cli peering trust $PUBKEY 172.24.0.$((2+$CLIENTROUTERS+$GATEWAYROUTERS)):4000
+
+			TEMP=$(head nodes-info/peeringinfo_$z.txt)
+			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+			docker exec Rpc wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
+
 			for i in $(seq 1 $CLIENTROUTERS)
 			do
 				for j in $(seq 1 $CLIENTS)
@@ -315,7 +336,7 @@ star_topology()
 						TEMP=$(head nodes-info/peeringinfo_$w.txt)
 						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
 						docker exec Node_$z wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
-						echo "Node_$z trust $PUBKEY 172.26.$i.$(( $j+2 )):4000"
+						echo "trust $PUBKEY 172.26.$i.$(( $j+2 )):4000"
 						echo
 					fi
 				done
@@ -330,9 +351,10 @@ star_topology()
 
 
 	#RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
-	#RPC="http://$RPC"
+	RPC=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Rpc):8545
+	RPC="http://$RPC"
 
-	#echo "RPC url: $RPC"
+	echo "RPC url: $RPC"
 	echo
 
 	for i in $(seq 1 $GATEWAYROUTERS)
@@ -341,7 +363,7 @@ star_topology()
 		do
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
-	   		#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
 	   		echo
 	   	done
 	done
@@ -398,6 +420,7 @@ collect()
 	stop_all
 	prune_networks
 	prune_volumes
+	rm -rf nodes-info/*
 }
 
 #
@@ -421,7 +444,7 @@ case $1 in
 	start)
 		print_config
 		star_topology
-		#collect
+		collect
 		;;
 	build)
 		build_all

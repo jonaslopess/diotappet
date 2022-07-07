@@ -1,2 +1,0 @@
-PubKey: H4xmSwzH31KcQCW3C4yYBW3KyeeaKDuiKgtfv86PBwkW
-NetID:  127.0.0.1:4000

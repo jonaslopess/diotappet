@@ -1,27 +1,49 @@
 #!/bin/sh
 
-#cd ipv6-base
+cd ipv6-base
 
-#sudo docker build -t ipv6-base:latest .
+sudo docker build -t ipv6-base:latest .
 
-#cd ..
+cd ..
 
-#cd wasp-base
+cd wasp-base
 
-#git clone https://github.com/iotaledger/wasp.git
-#cd wasp
-#rm Dockerfile
-#cp ../Dockerfile Dockerfile
+git clone https://github.com/iotaledger/wasp.git
+cp Dockerfile wasp/Dockerfile
+cd wasp
 
-#sudo docker build -t wasp-base:latest .
+sudo docker build -t wasp-base:latest .
 
-#cd ../..
+cd ..
+
+rm -rf wasp
+
+cd ..
 
 #cd goshimmer-base
 
 #DOCKER_BUILDKIT=1 docker build -t goshimmer-base .
 
 #cd ..
+
+cd goshimmer
+
+git clone https://github.com/lmoe/goshimmer.git
+
+cp Dockerfile goshimmer/Dockerfile
+cp goshimmer.config.json goshimmer/config.default.json
+cp snapshot.bin goshimmer/snapshot.bin
+cp init goshimmer/init
+
+cd goshimmer
+
+DOCKER_BUILDKIT=1 docker build -t goshimmer:corenode .
+
+cd ..
+
+rm -rf goshimmer
+
+cd ..
 
 #cd ipv6-goshimmer-node
 
@@ -35,11 +57,11 @@ sudo docker build -t node:latest .
 
 cd ..
 
-#cd gateway-base
+cd gateway-base
 
-#sudo docker build -t gateway-base:latest .
+sudo docker build -t gateway-base:latest .
 
-#cd ..
+cd ..
 
 cd ipv6-gateway
 

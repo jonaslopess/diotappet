@@ -4,7 +4,7 @@ sleep $(($DELAY * 3))
 
 # Configure Routes
 # ip -6 route del default
-ip route del default
+# ip route del default
 
 if [ 'gateways' = $ROUTE ]
   then
@@ -34,7 +34,7 @@ if [ 'clients' = $ROUTE ]
 	do		
 		if [ $i != $CLIENTROUTER ]
 		then
-			ip route add 172.26.$(( $i )).0/16 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
+			ip route add 172.26.$(( $i )).0/24 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
 		fi
 	done
 fi
