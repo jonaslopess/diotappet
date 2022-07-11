@@ -299,6 +299,13 @@ star_topology()
 
 	sleep 3
 
+	#RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
+	RPCIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Rpc)
+	RPC="http://$RPCIP:8545"
+
+	echo "RPC url: $RPC"
+	echo
+
 	for i in $(seq 1 $CLIENTROUTERS)
 	do
 		for j in $(seq 1 $CLIENTS)
@@ -320,7 +327,7 @@ star_topology()
 			
 			TEMP=$(head nodes-info/peeringinfo_Rpc.txt)
 			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-			docker exec Node_$z wasp-cli peering trust $PUBKEY 172.24.0.$((2+$CLIENTROUTERS+$GATEWAYROUTERS)):4000
+			docker exec Node_$z wasp-cli peering trust $PUBKEY $RPCIP:4000
 
 			TEMP=$(head nodes-info/peeringinfo_$z.txt)
 			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
@@ -349,14 +356,6 @@ star_topology()
 	docker exec Rpc wasp-cli peering list-trusted
 	echo
 
-
-	#RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
-	RPC=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Rpc):8545
-	RPC="http://$RPC"
-
-	echo "RPC url: $RPC"
-	echo
-
 	for i in $(seq 1 $GATEWAYROUTERS)
 	do
 		for j in $(seq 1 $GATEWAYS)
@@ -364,6 +363,7 @@ star_topology()
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
 	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+			#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z gateway:onlystart
 	   		echo
 	   	done
 	done

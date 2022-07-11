@@ -23,8 +23,12 @@ wasp -c /etc/wasp_config.json &
 
 sleep 5
 
+cd ../..
+
 wasp-cli init
+sleep 1
 wasp-cli set goshimmer.api $GOSHIMMERAPI
+sleep 1
 COMMITTEE=''
 for i in $(seq 1 $CLIENTROUTERS)
 do
@@ -49,6 +53,8 @@ do
     done 
 done
 
+sleep 1
+
 wasp-cli request-funds
 
 echo "Committee $COMMITTEE"
@@ -57,7 +63,7 @@ echo "Number of nodes $NODES"
 QUORUM="$(( $NODES*2/3+1 ))"
 echo "Quorum $QUORUM"
 
-sleep $(($DELAY * 6))
+sleep $(($DELAY * 1))
 
 wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --chain=diotappet --description="Test Chain of DIoTAppET"
 
