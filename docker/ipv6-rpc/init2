@@ -1,0 +1,76 @@
+#!/bin/sh
+
+#ip -6 route del default
+ip route del default
+
+for i in $(seq 1 $CLIENTROUTERS)
+do		
+    #ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+    ip route add 172.26.$i.0/24 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
+done
+
+for i in $(seq 1 $GATEWAYROUTERS)
+do
+    #ip -6 route add dddd:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $i ))""|bc`
+    ip route add 172.25.$i.0/24 via 172.24.0.$(( 1 + $i ))
+done
+
+tmp=$(mktemp)
+jq --arg a "$TXSTREAM" '.nodeconn.address = $a' /etc/wasp_config.json > "$tmp" && mv "$tmp" /etc/wasp_config.json
+
+cd usr/bin
+wasp -c /etc/wasp_config.json &
+
+sleep 15
+
+cd ../..
+
+wasp-cli init
+sleep 1
+wasp-cli set goshimmer.api $GOSHIMMERAPI
+sleep 1
+COMMITTEE=''
+for i in $(seq 1 $CLIENTROUTERS)
+do
+    for j in $(seq 1 $CLIENTS)
+    do
+        z="$(( $CLIENTS * ( $i - 1 ) + $j - 1 ))"
+        echo "Client $z"
+        
+        if [ $z = 0 ]
+        then 
+            COMMITTEE=$z
+        else 
+            COMMITTEE=$COMMITTEE","$z
+        fi
+        #wasp-cli set wasp.`echo $z`.api `echo [cccc:$i::$(($j+2))]`:9090
+        wasp-cli set wasp.$z.api 172.26.$i.$(($j+2)):9090
+        #wasp-cli set wasp.`echo $z`.nanomsg `echo [cccc:$i::$(($j+2))]`:5550
+        wasp-cli set wasp.$z.nanomsg 172.26.$i.$(($j+2)):5550
+        #wasp-cli set wasp.`echo $z`.peering `echo [cccc:$i::$(($j+2))]`:4000
+        wasp-cli set wasp.$z.peering 172.26.$i.$(($j+2)):4000
+        echo $COMMITTEE
+    done 
+done
+
+sleep 1
+
+wasp-cli request-funds
+
+echo "Committee $COMMITTEE"
+NODES="$(( $CLIENTROUTERS*$CLIENTS ))"
+echo "Number of nodes $NODES"
+QUORUM="$(( $NODES*2/3+1 ))"
+echo "Quorum $QUORUM"
+
+sleep $(($DELAY * 1))
+
+wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --chain=diotappet --description="Test Chain of DIoTAppET"
+
+wasp-cli chain deposit IOTA:10000
+
+wasp-cli chain evm deploy -a diotappet --alloc 0xded98e256d2C56a801FAa6a26e37F7b0E1c77008:1000000000000000000000000
+
+wasp-cli chain evm jsonrpc
+
+#tail -f /var/log/dmesg
