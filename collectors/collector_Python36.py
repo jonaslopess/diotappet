@@ -42,10 +42,10 @@ def main(dir, architecture):
             for li in lines:
                 data = li.split(";")
                 tcnt = tcnt + 1
-                if data[7][0] != 's':
+                if data[8][0] != 's':
                     ecnt = ecnt + 1
                 else:
-                    tmean = tmean + int(data[6])
+                    tmean = tmean + int(data[4])
                     okcnt = okcnt + 1
             f.close()
 
@@ -89,16 +89,16 @@ def main(dir, architecture):
 # Length,Gateways,GatewayRouters,Clients,ClientRouters
 
         if architecture == 'XIAIPv6':
-            print(f'{l[6]}, {l[10]}, {l[12]}, {l[14]}, {l[16]}, {tmean/okcnt}, {ecnt*100/tcnt}, {gw_tmean/gw_okcnt}, {gw_ecnt*100/gw_tcnt}, {(tmean/okcnt) - (gw_tmean/gw_okcnt)}, {cpu_tmean/cpu_tcnt}, {cpu_end}')
+            print(f'{l[6]}, {l[10]}, {l[12]}, {l[14]}, {l[16]}, {tmean/okcnt}, {ecnt*100/tcnt}, {gw_tmean/gw_okcnt if gw_okcnt else 0}, {gw_ecnt*100/gw_tcnt if gw_tcnt else 0}, {(tmean/okcnt if okcnt else 0) - (gw_tmean/gw_okcnt if gw_okcnt else 0)}, {cpu_tmean/cpu_tcnt if cpu_tcnt else 0}, {cpu_end}')
 
             results = results.append({'Length': l[6], 'Gateways': l[10], 'GatewayRouters': l[12], 'Clients': l[14], 'ClientRouters': l[16],
-                                      'Total Delay': (tmean / okcnt), 'Lost Packets': ecnt*100/tcnt, 'UDPDelay': (gw_tmean/gw_okcnt), 'Lost UDP Packets': (gw_ecnt*100/gw_tcnt),
-                                      'XIA Delay': ((tmean/okcnt) - (gw_tmean/gw_okcnt)), 'CPU': cpu_tmean/cpu_tcnt, 'CPU End': cpu_end}, ignore_index=True)
+                                      'Total Delay': (tmean / okcnt if okcnt else 0), 'Lost Packets': ecnt*100/tcnt if tcnt else 0, 'UDPDelay': (gw_tmean/gw_okcnt if gw_okcnt else 0), 'Lost UDP Packets': (gw_ecnt*100/gw_tcnt if gw_tcnt else 0),
+                                      'XIA Delay': ((tmean/okcnt if okcnt else 0) - (gw_tmean/gw_okcnt if gw_okcnt else 0)), 'CPU': cpu_tmean/cpu_tcnt if cpu_tcnt else 0, 'CPU End': cpu_end}, ignore_index=True)
         elif architecture == 'IPv6':
             print(
-                f'{l[6]}, {l[10]}, {l[12]}, {l[14]}, {l[16]}, {tmean/okcnt}, {ecnt*100/tcnt}, {cpu_tmean/cpu_tcnt}, {cpu_end}')
+                f'{l[6]}, {l[10]}, {l[12]}, {l[14]}, {l[16]}, {tmean/okcnt if okcnt else 0}, {ecnt*100/tcnt if tcnt else 0}, {cpu_tmean/cpu_tcnt if cpu_tcnt else 0}, {cpu_end}')
             results = results.append({'Length': l[6], 'Gateways': l[10], 'GatewayRouters': l[12], 'Clients': l[14], 'ClientRouters': l[16], 'Latency Mean': tmean /
-                                      okcnt, 'Lost Packets': ecnt*100/tcnt, 'CPU': cpu_tmean/cpu_tcnt, 'CPU End': cpu_end}, ignore_index=True)
+                                      okcnt if okcnt else 0, 'Lost Packets': ecnt*100/tcnt if tcnt else 0, 'CPU': cpu_tmean/cpu_tcnt if cpu_tcnt else 0, 'CPU End': cpu_end}, ignore_index=True)
 
     if(architecture == 'XIAIPv6'):
         spreadsheetWriter = pd.ExcelWriter(

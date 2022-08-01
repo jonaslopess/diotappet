@@ -14,12 +14,13 @@ sudo ./collector /home/alberti/Desktop/XID2b/
 
 """
 
-print "Length, Gateways, GatewayRouters, Clients, ClientRouters, TotalDelay, LostPackets, UDPDelay, LostUDPPackets, XIADelay, CPU, TotalTestTime"
+print("Length, Gateways, GatewayRouters, Clients, ClientRouters, TotalDelay, LostPackets, UDPDelay, LostUDPPackets, XIADelay, CPU, TotalTestTime")
 
 
 DIR = sys.argv[1]
 subdirs=[f for f in listdir(DIR)]
 subdirs=[f for f in subdirs if f[0] == 'x']
+print(subdirs)
 for s in subdirs:
     l = s.split(" ")
 
@@ -81,4 +82,4 @@ for s in subdirs:
 # Length,Gateways,GatewayRouters,Clients,ClientRouters
 
 
-    print "%s, %s, %s, %s, %s, %d, %d, %d, %d, %d, %d, %d" % (l[6],l[10],l[12],l[14],l[16], tmean/okcnt, ecnt*100/tcnt,gw_tmean/gw_okcnt, gw_ecnt*100/gw_tcnt, tmean/okcnt - gw_tmean/gw_okcnt, cpu_tmean/cpu_tcnt, cpu_end)
+    print("%s, %s, %s, %s, %s, %d, %d, %d, %d, %d, %d, %d" % (l[6],l[10],l[12],l[14],l[16], tmean/okcnt, ecnt*100/tcnt,gw_tmean/gw_okcnt, gw_ecnt*100/gw_tcnt, tmean/okcnt - gw_tmean/gw_okcnt, cpu_tmean/cpu_tcnt, cpu_end))
