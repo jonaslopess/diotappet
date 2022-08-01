@@ -54,7 +54,7 @@ setup()
 	REQUESTS=100
 	DELAY=10
 
-	FIA=ipv4
+	FIA=ipv6
 
 	DATAVOLUME=diotappet
 
@@ -105,11 +105,11 @@ setup()
 		esac
 	done
 
-	CLIENTIMAGE=node
-	GATEWAYIMAGE=gateway
-	CLIENTROUTERIMAGE=router
-	GATEWAYROUTERIMAGE=router
-	SERVERIMAGE=server
+	CLIENTIMAGE=$FIA-node
+	GATEWAYIMAGE=$FIA-gateway
+	CLIENTROUTERIMAGE=$FIA-router
+	GATEWAYROUTERIMAGE=$FIA-router
+	SERVERIMAGE=$FIA-server
 }
 
 print_config()
@@ -216,7 +216,8 @@ star_topology()
 	echo
 
 	echo "Core Network"
-	docker network create --subnet=172.24.0.0/24 Core_Network
+	docker network create --ipv6 --subnet=bbbb::/64 Core_Network
+	sysctl net.ipv6.conf.all.forwarding=0
 	echo
 
 	#echo "Server"
@@ -235,10 +236,11 @@ star_topology()
 	for i in $(seq 1 $GATEWAYROUTERS)
 	do
 		echo "Gateways Network $i"
-		docker network create --subnet=172.25.$(( $i )).0/24 Gateways_Network_$i
+		docker network create --ipv6 --subnet=dddd:$i::/64 Gateways_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
 		echo
 		echo "Gateways Router $i"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYS=$GATEWAYS -e GATEWAYSROUTER=$i -e ROUTE=gateways --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Gateways_Network_$i --name Gateways_Router_$i $GATEWAYROUTERIMAGE
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYS=$GATEWAYS -e GATEWAYSROUTER=$i -e ROUTE=gateways --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Gateways_Network_$i --name Gateways_Router_$i $GATEWAYROUTERIMAGE
 		docker network connect Core_Network Gateways_Router_$i
 		echo
 	done
@@ -246,10 +248,11 @@ star_topology()
 	for i in $(seq 1 $CLIENTROUTERS)
 	do
 		echo "Nodes Network $i"
-		docker network create --subnet=172.26.$(( $i )).0/24 Nodes_Network_$i
+		docker network create --ipv6 --subnet=cccc:$i::/64 Nodes_Network_$i
+		sysctl net.ipv6.conf.all.forwarding=0
 		echo
 		echo "Nodes Router $i"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTROUTER=$i -e ROUTE=clients --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
+		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e DELAY=$DELAY -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENTROUTER=$i -e ROUTE=clients --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Nodes_Network_$i --name Nodes_Router_$i $CLIENTROUTERIMAGE
 		docker network connect Core_Network Nodes_Router_$i
 		echo
 	done
@@ -261,17 +264,8 @@ star_topology()
 	#docker run -v $DATAVOLUME:/$DATAVOLUME -itd --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --net=Goshimmer_Network --name Goshimmer_Master ipv6-goshimmer-node
 	#echo 
 
-	echo "Goshimmer Node"
-	docker volume create goshimmer-db
-	docker run -v goshimmer-db:/tmp/devnetdb -itd -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS --privileged --sysctl net.ipv4.conf.all.forwarding=1 --net=Core_Network --name Devnet_Goshimmer goshimmer:corenode
-	#cd docker/goshimmer
-	#docker-compose up -d
-	#cd ../..
-
-
-
-	GIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Devnet_Goshimmer):5000
-	#GIP=goshimmer.sc.iota.org:5000
+	#GIP=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Goshimmer_Master)]:5000
+	GIP=goshimmer.sc.iota.org:5000
 	echo "Goshimmer Master: $GIP"
 	echo
 	
@@ -281,30 +275,12 @@ star_topology()
 		do
 			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
 			echo "Client $z"
-			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e GATEWAYROUTERS=$GATEWAYROUTERS -e CLIENTROUTERS=$CLIENTROUTERS -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --name Node_$z $CLIENTIMAGE
+			docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Nodes_Network_$i -e CLIENT=$j -e CLIENTROUTER=$i -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Node_$z $CLIENTIMAGE
 			echo
 		done
 	done
 
 	sleep 3
-
-	#GAPI=https://api.goshimmer.sc.iota.org
-	GAPI=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Devnet_Goshimmer):8080
-	echo "Goshimmer API: $GAPI"
-	echo
-
-	echo "RPC provider"
-	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMERAPI=$GAPI -e TXSTREAM=$GIP --privileged --name Rpc rpc
-	echo
-
-	sleep 3
-
-	#RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
-	RPCIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Rpc)
-	RPC="http://$RPCIP:8545"
-
-	echo "RPC url: $RPC"
-	echo
 
 	for i in $(seq 1 $CLIENTROUTERS)
 	do
@@ -316,7 +292,14 @@ star_topology()
 		done
 	done
 
-	docker exec Rpc wasp-cli peering info > nodes-info/peeringinfo_Rpc.txt
+	
+	GIP=https://api.goshimmer.sc.iota.org
+	echo "Goshimmer API: $GIP"
+	echo
+
+	echo "RPC provider"
+	#docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMER=$GIP --privileged --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Rpc ipv6-rpc
+	echo
 
 	echo "Trust setup"
 	for x in $(seq 1 $CLIENTROUTERS)
@@ -324,15 +307,7 @@ star_topology()
 		for y in $(seq 1 $CLIENTS)
 		do
 			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
-			
-			TEMP=$(head nodes-info/peeringinfo_Rpc.txt)
-			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-			docker exec Node_$z wasp-cli peering trust $PUBKEY $RPCIP:4000
-
-			TEMP=$(head nodes-info/peeringinfo_$z.txt)
-			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-			docker exec Rpc wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
-
+			docker exec Node_$z wasp-cli peering trust $PUBKEY [bbbb::6]:4000
 			for i in $(seq 1 $CLIENTROUTERS)
 			do
 				for j in $(seq 1 $CLIENTS)
@@ -342,8 +317,8 @@ star_topology()
 					then
 						TEMP=$(head nodes-info/peeringinfo_$w.txt)
 						PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-						docker exec Node_$z wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
-						echo "trust $PUBKEY 172.26.$i.$(( $j+2 )):4000"
+						docker exec Node_$z wasp-cli peering trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000
+						echo "Node_$z trust $PUBKEY [cccc:$i::$(( $j+2 ))]:4000"
 						echo
 					fi
 				done
@@ -356,6 +331,13 @@ star_topology()
 	docker exec Rpc wasp-cli peering list-trusted
 	echo
 
+
+	#RPC=[$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.GlobalIPv6Address}}{{end}}' Rpc)]:8545
+	#RPC="http://$RPC"
+
+	#echo "RPC url: $RPC"
+	echo
+
 	for i in $(seq 1 $GATEWAYROUTERS)
 	do
 		for j in $(seq 1 $GATEWAYS)
@@ -363,7 +345,6 @@ star_topology()
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
 	   		#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
-			#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z gateway:onlystart
 	   		echo
 	   	done
 	done
@@ -406,7 +387,7 @@ collect()
 		echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
 		echo
 		echo "CPU Usage: "$CPU%
-		docker stats --format "{{.Name}};{{.PIDs}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/running-stats.csv"
+		docker stats --format "{{.Name}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.PIDs}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/running-stats.csv"
 		for d in `docker ps -q`; do
 			docker ps --format "{{.Names}};{{.Size}}" >> "$DIOTAPPETDIR/logs/$HOSTNAME/$FIA d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/size-stats.csv"
 		done
@@ -420,7 +401,6 @@ collect()
 	stop_all
 	prune_networks
 	prune_volumes
-	rm -rf nodes-info/*
 }
 
 #

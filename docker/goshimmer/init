@@ -1,0 +1,21 @@
+#!/bin/sh
+
+ip route del default
+for i in $(seq 1 $CLIENTROUTERS)
+do		
+    #ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 1 + $GATEWAYROUTERS + $i ))""|bc`
+    ip route add 172.26.$i.0/24 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
+done
+
+
+tmp=$(mktemp)
+jq --arg a "/snapshot.bin" '.messageLayer.snapshot.file = $a' /config.json > "$tmp" && mv "$tmp" /config.json
+jq '.messageLayer.snapshot.genesisNode = ""' /config.json > "$tmp" && mv "$tmp" /config.json
+jq '.messageLayer.startSynced = true' /config.json > "$tmp" && mv "$tmp" /config.json
+jq --arg a "/tmp/devnetdb" '.database.directory = $a' /config.json > "$tmp" && mv "$tmp" /config.json
+jq '.mana.snapshotResetTime = true' /config.json > "$tmp" && mv "$tmp" /config.json
+jq '.node.seed = base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E' /config.json > "$tmp" && mv "$tmp" /config.json
+
+
+cd run
+./goshimmer -c /config.json

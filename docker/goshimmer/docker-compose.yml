@@ -1,0 +1,43 @@
+version: "3.4"
+
+services:
+  Devnet_Goshimmer:
+    restart: always
+    container_name: Devnet_Goshimmer
+    #https://github.com/lmoe/goshimmer
+    image: goshimmer:devnet
+    stop_grace_period: 1m
+    command: >
+      --config=/tmp/config.json
+      --database.directory=/tmp/devnetdb
+      --mana.snapshotResetTime=true
+      --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
+      --messageLayer.snapshot.file=/tmp/snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
+    volumes:
+      - goshimmer-db:/tmp/devnetdb
+      - ./goshimmer.config.json:/tmp/config.json:ro
+      - ./snapshot.bin:/tmp/snapshot.bin:ro
+    ports:
+      - "${HOST:-127.0.0.1}:5000:5000/tcp" # TX Stream
+      - "${HOST:-127.0.0.1}:8080:8080/tcp" # GoShimmer API
+      - "${HOST:-127.0.0.1}:8081:8081/tcp" # GoShimmer Dashboard
+      - "${HOST:-127.0.0.1}:9000:9000/tcp" # Analysis Dashboard
+      - "${HOST:-127.0.0.1}:9312:9312/tcp" # Prometheus
+    expose:
+      - "1888/tcp" # Analysis Server (within Docker network)
+      - "5000/tcp" # TXStream
+      - "8080/tcp" # GoShimmer API
+      - "8081/tcp" # GoShimmer Dashboard
+      - "9000/tcp" # Analysis Dashboard
+      - "9312/tcp" # Prometheus
+
+volumes:
+  goshimmer-db:
+    name: goshimmer-db
+
+networks:
+  default:
+    name: Nodes_Network_1
+    external: true

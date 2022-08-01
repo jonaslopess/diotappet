@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: goshimmer-db
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  local:
+    path: /tmp/devnetdb
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - minikube
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goshimmer
+  labels:
+    app: goshimmer
+spec:
+  selector:
+    matchLabels:
+      app: goshimmer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: goshimmer
+    spec:
+      containers:
+      - name: goshimmer
+        image: docker.io/jonaslopess/goshimmer:corenode
+        imagePullPolicy: IfNotPresent
+        ports:        
+        - containerPort: 5000
+          name: txstream
+        - containerPort: 8080
+          name: api
+      volumes:
+      - name: goshimmer-db
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goshimmer
+spec:
+  selector:
+    app: goshimmer
+  ports:
+    - name: goshimmer-api
+      protocol: TCP
+      port: 8080
+      targetPort: api
+    - name: goshimmer-txs
+      protocol: TCP
+      port: 5000
+      targetPort: txstream
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasp
+  labels:
+    app: wasp
+spec:
+  selector:
+    matchLabels:
+      app: wasp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wasp
+    spec:
+      containers:
+      - name: wasp
+        image: docker.io/jonaslopess/wasp:rpc
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8545
+          name: rpc
+        - containerPort: 4000
+          name: peering
+        - containerPort: 9090
+          name: api
+        - containerPort: 5550
+          name: nanomsg
+        env:
+        - name: TXSTREAM
+          value: "goshimmer:5000"
+        - name: GOSHIMMERAPI
+          value: "goshimmer:8080"
+        - name: WASPRPC
+          value: "wasp"
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wasp
+spec:
+  selector:
+    app: wasp
+  ports:
+    - name: wasp-rpc
+      protocol: TCP
+      port: 8545
+      targetPort: rpc
+    - name: wasp-api
+      protocol: TCP
+      port: 9090
+      targetPort: api
+    - name: wasp-nanomsg
+      protocol: TCP
+      port: 5550
+      targetPort: nanomsg
+    - name: wasp-peering
+      protocol: UDP
+      port: 4000
+      targetPort: peering
