@@ -24,7 +24,7 @@ echo
 sleep $(($DELAY * 6))
 
 # Start Client application passing all parameters
-python3.8 ipv6-echo-tester $GATEWAY $GATEWAYROUTER $MOTES $GATEWAYS $GATEWAYROUTERS $DATASIZE $REQUESTS $TIMEOUT $RPC $MANAGEMENT
+python3.8 ipv6-echo-tester $GATEWAY $GATEWAYROUTER $MOTES $DATASIZE $REQUESTS $TIMEOUT $RPC $MANAGEMENT
 
 # Keep Alive
 #tail -f /var/log/dmesg

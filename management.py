@@ -1,6 +1,8 @@
 import sys
 import json
 
+from time import sleep
+
 from web3 import Web3, HTTPProvider
 
 OWNER_ACCOUNT = '0xded98e256d2C56a801FAa6a26e37F7b0E1c77008'
@@ -57,7 +59,14 @@ def main():
 
         web3 = Web3(HTTPProvider(RPC_URL))
 
-        if(not web3.isConnected()):
+        trying=0
+        while(not web3.isConnected()):
+            web3 = Web3(HTTPProvider(RPC_URL))
+            trying += 1
+            sleep(1)
+            #print(trying)
+        
+        if trying >= 50:
             #print(RPC_URL, "Connection error. Exiting...")
             return -1
 

@@ -1,0 +1,37 @@
+#!/bin/sh
+
+tmp=$(mktemp)
+jq --arg a "$TXSTREAM" '.nodeconn.address = $a' /etc/wasp_config.json > "$tmp" && mv "$tmp" /etc/wasp_config.json
+
+cd usr/bin
+wasp -c /etc/wasp_config.json &
+
+sleep 15
+
+cd ../..
+
+wasp-cli init
+sleep 1
+wasp-cli set goshimmer.api $GOSHIMMERAPI
+sleep 1
+COMMITTEE='0'
+
+wasp-cli set wasp.0.api $WASPRPC:9090
+wasp-cli set wasp.0.nanomsg $WASPRPC:5550
+wasp-cli set wasp.0.peering $WASPRPC:4000
+
+sleep 1
+
+wasp-cli request-funds
+
+sleep 15
+
+wasp-cli chain deploy --committee=0 --quorum=1 --chain=smartgarden --description="Test Chain of Smart Garden"
+
+wasp-cli chain deposit IOTA:10000
+
+wasp-cli chain evm deploy -a smartgarden --alloc 0xded98e256d2C56a801FAa6a26e37F7b0E1c77008:1000000000000000000000000
+
+wasp-cli chain evm jsonrpc
+
+#tail -f /var/log/dmesg

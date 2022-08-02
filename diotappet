@@ -294,7 +294,7 @@ star_topology()
 	echo
 
 	echo "RPC provider"
-	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMERAPI=$GAPI -e TXSTREAM=$GIP --privileged --name Rpc rpc
+	docker run -itd -v $DATAVOLUME:/$DATAVOLUME --net=Core_Network -e DELAY=$DELAY -e CLIENTS=$CLIENTS -e CLIENTROUTERS=$CLIENTROUTERS -e GATEWAYROUTERS=$GATEWAYROUTERS -e GOSHIMMERAPI=$GAPI -e TXSTREAM=$GIP --privileged --name Rpc rpc:latest
 	echo
 
 	sleep 3
@@ -356,7 +356,10 @@ star_topology()
 	docker exec Rpc wasp-cli peering list-trusted
 	echo
 
+	sleep 40
+
 	MANAGEMENT=$(python management.py $RPC)
+	echo "Management contract: $MANAGEMENT"
 	
 	for i in $(seq 1 $GATEWAYROUTERS)
 	do
@@ -364,7 +367,7 @@ star_topology()
 		do
 	   		z="$(( $GATEWAYS * ( $i - 1 ) + $j ))"
 	   		echo "Gateway $z"
-	   		#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e MANAGEMENT=$MANAGEMENT -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
+	   		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e MANAGEMENT=$MANAGEMENT -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z $GATEWAYIMAGE
 			#docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e MANAGEMENT=$MANAGEMENT -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e GATEWAY=$j -e GATEWAYROUTER=$i -e MOTES=$MOTES -e RPC=$RPC -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=$GATEWAYROUTERS -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --net=Gateways_Network_$i --name Gateway_$z gateway:onlystart
 	   		echo
 	   	done
@@ -446,7 +449,7 @@ case $1 in
 	start)
 		print_config
 		star_topology
-		#collect
+		collect
 		;;
 	build)
 		build_all

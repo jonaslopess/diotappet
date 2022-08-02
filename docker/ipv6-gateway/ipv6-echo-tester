@@ -14,7 +14,7 @@ from web3 import Web3, HTTPProvider
 
 SLEEP = 180
 PROPERTY = 'Temperature'
-PROPERTY_DESCRIPTION = 'Temperature value collected by a mote.'
+PROPERTY_DESCRIPTION = 'Temperature inside the cargo compartment collected by a mote.'
 ROUNDS = 180
 
 #RPC_URL = 'HTTP://127.0.0.1:8545'
@@ -110,7 +110,7 @@ def deploy_contract(web3, account, private_key):
 		print("Error to create SC")
 		return False
 
-def add_monitoring_capability(web3, contract, account, private_key):
+def add_monitoring_capability(web3, contract, property, description, account, private_key):
 	print("Adding monitoring capability...")
 	if(web3):		
 		try:
@@ -118,8 +118,8 @@ def add_monitoring_capability(web3, contract, account, private_key):
 			
 			nonce = web3.eth.getTransactionCount(account)
 			tx_dict = contract.functions.addMonitoringCpability(
-				PROPERTY,
-				PROPERTY_DESCRIPTION
+				property,
+				description
 			).buildTransaction({
 				'chainId' : CHAIN_ID,
 				'gas' : 2100000,
@@ -132,8 +132,8 @@ def add_monitoring_capability(web3, contract, account, private_key):
 			end = time.time()
 		
 			tx_time = end-start
-			value = contract.functions.getMonitoringValue(PROPERTY).call()
-			print(f"Add Monitoring Capability, Contract: {contract.address}, Delay: {tx_time: .2f}, {PROPERTY} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
+			value = contract.functions.getMonitoringValue(property).call()
+			print(f"Add Monitoring Capability, Contract: {contract.address}, Delay: {tx_time: .2f}, {property} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
 
 			with open(''.join(['/xiotvolume/results/contracts.csv']), 'a') as csvfile:
 				writer = csv.writer(csvfile, delimiter=',')
@@ -161,7 +161,7 @@ def register(mote, data, web3, contract, account, private_key):
 			nonce = web3.eth.getTransactionCount(account)
 			print("Nonce:", nonce)
 			tx_dict = contract.functions.setMonitoringValue(
-				#PROPERTY,
+				PROPERTY,
 				data
 			).buildTransaction({
 				'chainId' : CHAIN_ID,
@@ -279,7 +279,7 @@ def echotester():
 	
 	register_contract(web3, management, DST_GATEWAY, DST_GATEWAYROUTER, contract_address)
 
-	#add_monitoring_capability(web3, contract, account, private_key)
+	add_monitoring_capability(web3, contract, PROPERTY, PROPERTY_DESCRIPTION, account, private_key)
 	
 	REQ = 0
 	INITIAL = time.time()
