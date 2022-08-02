@@ -20,8 +20,8 @@ ROUNDS = 180
 #RPC_URL = 'HTTP://127.0.0.1:8545'
 CHAIN_ID = 1074
 
-ACCOUNT = '0x8366B08c3C2a4c881a3d3610349eEf67f9a137ab'
-PRIVATE_KEY = '3d2d17463ba0f20b9ca1b991971fdcffe07dce7c7ae38cd3ae3dae1039a8a4ec'
+#ACCOUNT = '0x8366B08c3C2a4c881a3d3610349eEf67f9a137ab'
+#PRIVATE_KEY = '3d2d17463ba0f20b9ca1b991971fdcffe07dce7c7ae38cd3ae3dae1039a8a4ec'
 
 OWNER_ACCOUNT = '0xded98e256d2C56a801FAa6a26e37F7b0E1c77008'
 OWNER_PRIVATE_KEY = 'adf3ee811fb2e27947232b39f6bbbada559c75ab09f694ad567fc18142341784'
@@ -31,6 +31,8 @@ DEVICE_ID = 0
 
 CONTRACT_ABI = json.load(open('smart-contract-abi.json'))
 CONTRACT_BYTECODE = json.load(open('smart-contract-bytecode.json'))
+
+MANAGEMENT_ABI = json.load(open('management-abi.json'))
 
 MAXLEN = 120
 UDP_PORT = 3000
@@ -49,43 +51,72 @@ UDP_PORT = 3000
 	# abi = temp_file['Incrementer.sol:Incrementer']['abi']
 	# bytecode = temp_file['Incrementer.sol:Incrementer']['bin']
 
-def deploy_contract(RPC_URL):
-	web3 = Web3(HTTPProvider(RPC_URL))
-	if(web3.isConnected()):
+def register_contract(web3, management, gw, gwr, contract_address):
+	print("Registering contract...")
+	if(web3):		
 		try:
-			account_from = {
-				'private_key': PRIVATE_KEY,
-				'address': ACCOUNT,
-			}
-			contract = web3.eth.contract(abi=CONTRACT_ABI, bytecode=CONTRACT_BYTECODE)
-			construct_txn = contract.constructor().buildTransaction(
-				{
-					'from': account_from['address'],
-					'nonce': web3.eth.get_transaction_count(account_from['address']),
-					'gasPrice' : web3.toWei('10', 'gwei')
-				}
-			)
-			tx_create = web3.eth.account.sign_transaction(construct_txn, account_from['private_key'])
-			tx_hash = web3.eth.send_raw_transaction(tx_create.rawTransaction)
+			start = time.time()
+			nonce = web3.eth.getTransactionCount(OWNER_ACCOUNT)
+			print("Nonce:", nonce)
+			tx_dict = management.functions.addLogisticsResource(
+				(gw+gwr),
+				"Registering contract to "+(gw+gwr),
+				contract_address
+			).buildTransaction({
+				'chainId' : CHAIN_ID,
+				'gas' : 100000,
+				'gasPrice' : web3.toWei('10', 'gwei'),
+				'nonce' : nonce,
+			})
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, OWNER_PRIVATE_KEY)
+			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-			print(f"Contract deployed at address: { tx_receipt.contractAddress }")
-			
-			return tx_receipt.contractAddress
+
+			end = time.time()
+		
+			tx_time = end-start
+
+			return [tx_time, tx_receipt.gasUsed]
+
 		except:
-			print("Error to create SC")
-			return False
+			print("Error on regitration of a property value.")
+			return [0, 0, 0]
 	else:
-		print(RPC_URL, "Connection error")
+		print("Invalid contract")
+		return [-1, -1, -1]
+
+
+def deploy_contract(web3, account, private_key):
+	try:
+		account_from = {
+			'private_key': private_key,
+			'address': account,
+		}
+		contract = web3.eth.contract(abi=CONTRACT_ABI, bytecode=CONTRACT_BYTECODE)
+		construct_txn = contract.constructor().buildTransaction(
+			{
+				'from': account_from['address'],
+				'nonce': web3.eth.get_transaction_count(account_from['address']),
+				'gasPrice' : web3.toWei('10', 'gwei')
+			}
+		)
+		tx_create = web3.eth.account.sign_transaction(construct_txn, account_from['private_key'])
+		tx_hash = web3.eth.send_raw_transaction(tx_create.rawTransaction)
+		tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+		print(f"Contract deployed at address: { tx_receipt.contractAddress }")
+		
+		return tx_receipt.contractAddress
+	except:
+		print("Error to create SC")
 		return False
 
-def add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS):
+def add_monitoring_capability(web3, contract, account, private_key):
 	print("Adding monitoring capability...")
-	web3, contract = check_contract(RPC_URL, CONTRACT_ADDRESS)
 	if(web3):		
 		try:
 			start = time.time()
 			
-			nonce = web3.eth.getTransactionCount(ACCOUNT)
+			nonce = web3.eth.getTransactionCount(account)
 			tx_dict = contract.functions.addMonitoringCpability(
 				PROPERTY,
 				PROPERTY_DESCRIPTION
@@ -95,43 +126,39 @@ def add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS):
 				'gasPrice' : web3.toWei('10', 'gwei'),
 				'nonce' : nonce,
 			})
-			signed_tx = web3.eth.account.sign_transaction(tx_dict, PRIVATE_KEY)
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
 			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 			end = time.time()
 		
 			tx_time = end-start
 			value = contract.functions.getMonitoringValue(PROPERTY).call()
-			print(f"Add Monitoring Capability, Contract: {CONTRACT_ADDRESS}, Delay: {tx_time: .2f}, {PROPERTY} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
+			print(f"Add Monitoring Capability, Contract: {contract.address}, Delay: {tx_time: .2f}, {PROPERTY} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
 
 			with open(''.join(['/xiotvolume/results/contracts.csv']), 'a') as csvfile:
 				writer = csv.writer(csvfile, delimiter=',')
-				writer.writerow([CONTRACT_ADDRESS, tx_time, value, tx_receipt.gasUsed])
+				writer.writerow([contract.address, tx_time, value, tx_receipt.gasUsed])
 
 		except:
 			print("Error on regitration of a property value.")
 	else:
 		print("Invalid contract")
 
-def check_contract(RPC_URL, CONTRACT_ADDRESS):
-	address = CONTRACT_ADDRESS
-	abi = CONTRACT_ABI
-	web3 = Web3(HTTPProvider(RPC_URL))
+def check_contract(web3, address, abi):
 	contract = web3.eth.contract(address=address, abi=abi)
 	if contract:
-		return (web3, contract)
+		return (contract)
 	else:
 		return False
 
-def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
+def register(mote, data, web3, contract, account, private_key):
 	print("Registering data...")
-	web3, contract = check_contract(RPC_URL, CONTRACT_ADDRESS)
 	if(web3):
 		
 		try:
 			start = time.time()
 
-			nonce = web3.eth.getTransactionCount(ACCOUNT)
+			nonce = web3.eth.getTransactionCount(account)
 			print("Nonce:", nonce)
 			tx_dict = contract.functions.setMonitoringValue(
 				#PROPERTY,
@@ -142,7 +169,7 @@ def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
 				'gasPrice' : web3.toWei('10', 'gwei'),
 				'nonce' : nonce,
 			})
-			signed_tx = web3.eth.account.sign_transaction(tx_dict, PRIVATE_KEY)
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
 			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
 			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
@@ -162,24 +189,11 @@ def register(mote, data, RPC_URL, CONTRACT_ADDRESS):
 		return [-1, -1, -1]
 
 
-def main():
-	if len(sys.argv) != 10:
-		print(sys.argv)
-		usage()
-	else:
-		echotester()
-
-def usage():
-    sys.stdout = sys.stderr
-    print('Usage: ipv6-echo-tester client clientrouter motes gateways gatewayrouters datasize requests timeout rpc')
-    sys.exit(2)
-
-def transfer_funds(RPC_URL):
-	web3 = Web3(HTTPProvider(RPC_URL))
+def transfer_funds(web3, account):	
 	try:
 		tx = {
 			'nonce': web3.eth.get_transaction_count(OWNER_ACCOUNT),
-			'to': ACCOUNT,
+			'to': account,
 			'value': web3.toWei(1, 'ether'),
 			'gas': 2000000,
 			'gasPrice': web3.toWei('10', 'gwei')
@@ -190,7 +204,7 @@ def transfer_funds(RPC_URL):
 		tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
 
 		owner_balance = web3.eth.get_balance(OWNER_ACCOUNT)
-		account_balance = web3.eth.get_balance(ACCOUNT)
+		account_balance = web3.eth.get_balance(account)
 
 		print("owner_balance: ", owner_balance)
 		print("account_balance: ", account_balance)
@@ -212,47 +226,60 @@ def create_account():
 	return acct.address, private_key
 
 def echotester():
-	#SRC_CLIENT = int(sys.argv[1])
-	#SRC_CLIENTROUTER = int(sys.argv[2])
 	DST_GATEWAY = sys.argv[1]
 	DST_GATEWAYROUTER = sys.argv[2]
 	MOTES = int(sys.argv[3])
-	GATEWAYS = int(sys.argv[4])
-	GATEWAYROUTERS = int(sys.argv[5])
-	DATASIZE = int(sys.argv[6])	
-	REQUESTS = int(sys.argv[7])
-	TIMEOUT = int(sys.argv[8])
-	RPC_URL = sys.argv[9]
+	DATASIZE = int(sys.argv[4])	
+	REQUESTS = int(sys.argv[5])
+	TIMEOUT = int(sys.argv[6])
+	RPC_URL = sys.argv[7]
+	MANAGEMENT_ADDRESS = sys.argv[8]
 
 	print("RPC_URL: ",RPC_URL)
-	ACCOUNT, PRIVATE_KEY = create_account()
+	account, private_key = create_account()
+
+	web3 = Web3(HTTPProvider(RPC_URL))
+
+	if(not web3.isConnected()):
+		print(RPC_URL, "Connection error. Exiting...")
+		return
 
 	trying = 0
-	while (not transfer_funds(RPC_URL) and (trying < 5)):
+	while (not transfer_funds(web3, account) and (trying < 5)):
 		print("Trying transfer funds again...")
 		trying += 1
 	
 	if trying >= 5:
 		print("Funds transfer problem. Exiting...")
 		return
-	
-	CONTRACT_ADDRESS = False
+
+	contract_address = False
 	trying = 0
 
-	while (not CONTRACT_ADDRESS) and (trying < 5):
+	while (not contract_address) and (trying < 5):
 		trying += 1
 		print("Contract creation problem. Trying again...", trying)
-		CONTRACT_ADDRESS = deploy_contract(RPC_URL)
+		contract_address = deploy_contract(web3, account, private_key)
 
 	if trying >= 5:
 		print("Contract creation problem. Exiting...")
 		return
 
-	if  not check_contract(RPC_URL,CONTRACT_ADDRESS):
+	contract = check_contract(web3, contract_address, CONTRACT_ABI)
+
+	if not contract:
 		print("Contract problem. Exiting...")
 		return
+	
+	management = check_contract(web3, MANAGEMENT_ADDRESS, MANAGEMENT_ABI)
 
-	#add_monitoring_capability(RPC_URL, CONTRACT_ADDRESS)
+	if not management:
+		print("Management contract problem. Exiting...")
+		return
+	
+	register_contract(web3, management, DST_GATEWAY, DST_GATEWAYROUTER, contract_address)
+
+	#add_monitoring_capability(web3, contract, account, private_key)
 	
 	REQ = 0
 	INITIAL = time.time()
@@ -290,7 +317,7 @@ def echotester():
 
 			random_value = random.randint(-2,2)
 
-			sc_results = register(DST_MOTE, random_value, RPC_URL, CONTRACT_ADDRESS)
+			sc_results = register(DST_MOTE, random_value, web3, contract, account, private_key)
 
 			print("latency: %d ms" % latency )
 		
@@ -318,4 +345,18 @@ def echotester():
 			with open(r'/diotappet/clientslog.csv', 'a') as f:
 				writer = csv.writer(f, delimiter=';')
 				writer.writerow(fields)
-main()
+
+def main():
+	if len(sys.argv) != 9:
+		print(sys.argv)
+		usage()
+	else:
+		echotester()
+
+def usage():
+    sys.stdout = sys.stderr
+    print('Usage: ipv6-echo-tester gateway gatewayrouter motes datasize requests timeout rpc management')
+    sys.exit(2)
+
+if __name__== "__main__":
+	main()

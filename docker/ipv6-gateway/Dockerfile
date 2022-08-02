@@ -1,6 +1,7 @@
 FROM gateway-base
 
 # Copy application and dependencies
+COPY management-abi.json ./management-abi.json
 COPY smart-contract-abi.json ./smart-contract-abi.json
 COPY smart-contract-bytecode.json ./smart-contract-bytecode.json
 COPY ipv6-echo-tester ./ipv6-echo-tester
