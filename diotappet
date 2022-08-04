@@ -312,7 +312,6 @@ star_topology()
 		do
 			z="$(( $CLIENTS * ( $i - 1 ) + $j ))"
 			docker exec Node_$z wasp-cli peering info > nodes-info/peeringinfo_$z.txt
-			echo
 		done
 	done
 
@@ -356,7 +355,17 @@ star_topology()
 	docker exec Rpc wasp-cli peering list-trusted
 	echo
 
-	sleep 40
+	echo "Setuping chain..."
+	sleep 30
+	
+	READY=0
+
+	while [ $READY != "ready" ]
+	do
+		sleep 10
+		READY=$(docker exec Rpc cat setup.log)
+		echo "RPC ready: $READY"
+	done
 
 	MANAGEMENT=$(python management.py $RPC)
 	echo "Management contract: $MANAGEMENT"

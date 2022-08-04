@@ -12,22 +12,20 @@ import socket
 
 from web3 import Web3, HTTPProvider
 
-SLEEP = 180
+
 PROPERTY = 'Temperature'
 PROPERTY_DESCRIPTION = 'Temperature inside the cargo compartment collected by a mote.'
-ROUNDS = 180
 
-#RPC_URL = 'HTTP://127.0.0.1:8545'
+PRODUCT = '0xa1a1a1a1a1a1a1a1'
+RULE_MAX = 10
+RULE_MIN = -10
+
 CHAIN_ID = 1074
-
-#ACCOUNT = '0x8366B08c3C2a4c881a3d3610349eEf67f9a137ab'
-#PRIVATE_KEY = '3d2d17463ba0f20b9ca1b991971fdcffe07dce7c7ae38cd3ae3dae1039a8a4ec'
 
 OWNER_ACCOUNT = '0xded98e256d2C56a801FAa6a26e37F7b0E1c77008'
 OWNER_PRIVATE_KEY = 'adf3ee811fb2e27947232b39f6bbbada559c75ab09f694ad567fc18142341784'
 
 DEVICE_ID = 0
-#CONTRACT_ADDRESS = '0xCE681D0a29312bb03992928A2082A8A65AFEE3c4'
 
 CONTRACT_ABI = json.load(open('smart-contract-abi.json'))
 CONTRACT_BYTECODE = json.load(open('smart-contract-bytecode.json'))
@@ -76,7 +74,7 @@ def register_contract(web3, management, gw, gwr, contract_address):
 		
 			tx_time = end-start
 
-			return [tx_time, tx_receipt.gasUsed]
+			return ["Registering contract",tx_time, tx_receipt.gasUsed]
 
 		except:
 			print("Error on regitration of a property value.")
@@ -85,6 +83,160 @@ def register_contract(web3, management, gw, gwr, contract_address):
 		print("Invalid contract")
 		return [-1, -1, -1]
 
+
+def add_monitoring_capability(web3, contract, property, description, account, private_key):
+	print("Adding monitoring capability...")
+	if(web3):		
+		try:
+			start = time.time()
+			
+			nonce = web3.eth.getTransactionCount(account)
+			tx_dict = contract.functions.addMonitoringCapability(
+				property,
+				description
+			).buildTransaction({
+				'chainId' : CHAIN_ID,
+				'gas' : 2100000,
+				'gasPrice' : web3.toWei('10', 'gwei'),
+				'nonce' : nonce,
+			})
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
+			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+			end = time.time()
+		
+			tx_time = end-start
+			value = contract.functions.getMonitoringValue(property).call()
+			print(f"Add Monitoring Capability, Contract: {contract.address}, Delay: {tx_time: .2f}, {property} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
+
+			return ["Add Monitoring Capability", tx_time, tx_receipt.gasUsed]
+
+		except:
+			print("Error on regitration of a monitoring capability.")
+			return [0, 0, 0]
+
+	else:
+		print("Invalid contract")
+		return [-1, -1, -1]
+
+
+def add_product_batch(web3, contract, product, account, private_key):
+	print("Adding product batch...")
+	if(web3):		
+		try:
+			start = time.time()
+			
+			nonce = web3.eth.getTransactionCount(account)
+			tx_dict = contract.functions.addProductBatch(
+				product
+			).buildTransaction({
+				'chainId' : CHAIN_ID,
+				'gas' : 2100000,
+				'gasPrice' : web3.toWei('10', 'gwei'),
+				'nonce' : nonce,
+			})
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
+			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+			end = time.time()
+		
+			tx_time = end-start
+			value = contract.functions.getStatus().call()
+			print(f"Add a product batch, Contract: {contract.address}, Delay: {tx_time: .2f}, {product} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
+
+			return ["Add a product batch", tx_time, tx_receipt.gasUsed]
+
+		except:
+			print("Error on adding a product batch.")
+			return [0, 0, 0]
+
+	else:
+		print("Invalid contract")
+		return [-1, -1, -1]
+
+
+def add_rule(web3, contract, product, property, max, min, account, private_key):
+	print("Adding rule...")
+	if(web3):		
+		try:
+			start = time.time()
+			
+			nonce = web3.eth.getTransactionCount(account)
+			tx_dict = contract.functions.addRule(
+				product,
+				property,
+				max,
+				min
+			).buildTransaction({
+				'chainId' : CHAIN_ID,
+				'gas' : 2100000,
+				'gasPrice' : web3.toWei('10', 'gwei'),
+				'nonce' : nonce,
+			})
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
+			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+			end = time.time()
+		
+			tx_time = end-start
+			value = contract.functions.getStatus().call()
+			print(f"Add a rule, Contract: {contract.address}, Delay: {tx_time: .2f}, {product} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
+
+			return ["Add a rule", tx_time, tx_receipt.gasUsed]
+
+		except:
+			print("Error on adding a rule.")
+			return [0, 0, 0]
+
+	else:
+		print("Invalid contract")
+		return [-1, -1, -1]
+
+
+
+def register(web3, contract, property, value, account, private_key):
+	print("Registering data...")
+	if(web3):
+		
+		try:
+			start = time.time()
+
+			nonce = web3.eth.getTransactionCount(account)
+			print("Nonce:", nonce)
+			tx_dict = contract.functions.setMonitoringValue(
+				property,
+				value
+			).buildTransaction({
+				'chainId' : CHAIN_ID,
+				'gas' : 100000,
+				'gasPrice' : web3.toWei('10', 'gwei'),
+				'nonce' : nonce,
+			})
+			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
+			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
+			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+
+			end = time.time()
+		
+			tx_time = end-start
+			value = contract.functions.getMonitoringValue(property).call()
+
+			return [tx_time, value, tx_receipt.gasUsed]
+
+		except:
+			print("Error on registration of a property value.")
+			return [0, 0, 0]
+	else:
+		print("Invalid contract")
+		return [-1, -1, -1]
+
+
+def check_contract(web3, address, abi):
+	contract = web3.eth.contract(address=address, abi=abi)
+	if contract:
+		return (contract)
+	else:
+		return False
 
 def deploy_contract(web3, account, private_key):
 	try:
@@ -109,85 +261,6 @@ def deploy_contract(web3, account, private_key):
 	except:
 		print("Error to create SC")
 		return False
-
-def add_monitoring_capability(web3, contract, property, description, account, private_key):
-	print("Adding monitoring capability...")
-	if(web3):		
-		try:
-			start = time.time()
-			
-			nonce = web3.eth.getTransactionCount(account)
-			tx_dict = contract.functions.addMonitoringCpability(
-				property,
-				description
-			).buildTransaction({
-				'chainId' : CHAIN_ID,
-				'gas' : 2100000,
-				'gasPrice' : web3.toWei('10', 'gwei'),
-				'nonce' : nonce,
-			})
-			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
-			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-			end = time.time()
-		
-			tx_time = end-start
-			value = contract.functions.getMonitoringValue(property).call()
-			print(f"Add Monitoring Capability, Contract: {contract.address}, Delay: {tx_time: .2f}, {property} Value: {value}, Cost(gas): {tx_receipt.gasUsed}")
-
-			with open(''.join(['/xiotvolume/results/contracts.csv']), 'a') as csvfile:
-				writer = csv.writer(csvfile, delimiter=',')
-				writer.writerow([contract.address, tx_time, value, tx_receipt.gasUsed])
-
-		except:
-			print("Error on regitration of a property value.")
-	else:
-		print("Invalid contract")
-
-def check_contract(web3, address, abi):
-	contract = web3.eth.contract(address=address, abi=abi)
-	if contract:
-		return (contract)
-	else:
-		return False
-
-def register(mote, data, web3, contract, account, private_key):
-	print("Registering data...")
-	if(web3):
-		
-		try:
-			start = time.time()
-
-			nonce = web3.eth.getTransactionCount(account)
-			print("Nonce:", nonce)
-			tx_dict = contract.functions.setMonitoringValue(
-				PROPERTY,
-				data
-			).buildTransaction({
-				'chainId' : CHAIN_ID,
-				'gas' : 100000,
-				'gasPrice' : web3.toWei('10', 'gwei'),
-				'nonce' : nonce,
-			})
-			signed_tx = web3.eth.account.sign_transaction(tx_dict, private_key)
-			tx_hash = web3.eth.send_raw_transaction(signed_tx.rawTransaction)
-			tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-
-			end = time.time()
-		
-			tx_time = end-start
-			#value = contract.functions.getMonitoringValue(PROPERTY).call()
-			value = contract.functions.getMonitoringValue().call()
-
-			return [tx_time, value, tx_receipt.gasUsed]
-
-		except:
-			print("Error on regitration of a property value.")
-			return [0, 0, 0]
-	else:
-		print("Invalid contract")
-		return [-1, -1, -1]
-
 
 def transfer_funds(web3, account):	
 	try:
@@ -214,6 +287,8 @@ def transfer_funds(web3, account):
 	except:
 		print("Error during funds transfering...")
 		return False
+
+
 	
 def create_account():
 	from eth_account import Account
@@ -277,9 +352,30 @@ def echotester():
 		print("Management contract problem. Exiting...")
 		return
 	
-	register_contract(web3, management, DST_GATEWAY, DST_GATEWAYROUTER, contract_address)
 
-	add_monitoring_capability(web3, contract, PROPERTY, PROPERTY_DESCRIPTION, account, private_key)
+	fields = register_contract(web3, management, DST_GATEWAY, DST_GATEWAYROUTER, contract_address)
+
+	with open(r'/diotappet/clientslog.csv', 'a') as f:
+				writer = csv.writer(f, delimiter=';')
+				writer.writerow(fields)
+
+	fields = add_monitoring_capability(web3, contract, PROPERTY, PROPERTY_DESCRIPTION, account, private_key)
+
+	with open(r'/diotappet/clientslog.csv', 'a') as f:
+				writer = csv.writer(f, delimiter=';')
+				writer.writerow(fields)
+
+	fields = add_product_batch(web3,contract, PRODUCT, account, private_key)
+
+	with open(r'/diotappet/clientslog.csv', 'a') as f:
+				writer = csv.writer(f, delimiter=';')
+				writer.writerow(fields)
+
+	fields = add_rule(web3, contract, PRODUCT, PROPERTY, RULE_MAX, RULE_MIN, account, private_key)
+
+	with open(r'/diotappet/clientslog.csv', 'a') as f:
+				writer = csv.writer(f, delimiter=';')
+				writer.writerow(fields)
 	
 	REQ = 0
 	INITIAL = time.time()
@@ -317,7 +413,7 @@ def echotester():
 
 			random_value = random.randint(-2,2)
 
-			sc_results = register(DST_MOTE, random_value, web3, contract, account, private_key)
+			sc_results = register(web3, contract, PROPERTY, random_value, account, private_key)
 
 			print("latency: %d ms" % latency )
 		

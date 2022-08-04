@@ -61,14 +61,11 @@ def main():
 
         trying=0
         while(not web3.isConnected()):
+            del web3
             web3 = Web3(HTTPProvider(RPC_URL))
             trying += 1
-            sleep(1)
+            sleep(10)
             #print(trying)
-        
-        if trying >= 50:
-            #print(RPC_URL, "Connection error. Exiting...")
-            return -1
 
         CONTRACT_ADDRESS = False
         trying=0

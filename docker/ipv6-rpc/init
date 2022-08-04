@@ -1,5 +1,7 @@
 #!/bin/sh
 
+echo "not_ready" > setup.log
+
 #ip -6 route del default
 ip route del default
 
@@ -70,6 +72,8 @@ wasp-cli chain deploy --committee=`echo $COMMITTEE` --quorum=`echo $QUORUM` --ch
 wasp-cli chain deposit IOTA:10000
 
 wasp-cli chain evm deploy -a diotappet --alloc 0xded98e256d2C56a801FAa6a26e37F7b0E1c77008:1000000000000000000000000
+
+echo "ready" > setup.log
 
 wasp-cli chain evm jsonrpc
 

@@ -17,7 +17,7 @@ ip route add default via 172.25.$GATEWAYROUTER.2
 
 #ip -6 route del default
 #ip -6 route add default via dddd:`echo "obase=16;$GATEWAYROUTER"|bc`::2
-ip -6 route
+#ip -6 route
 echo
 
 # Wait 6 delay times for Gateways + cooja + tunslip start
