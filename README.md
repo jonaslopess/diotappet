@@ -1,4 +1,4 @@
-<h1 align="center"> XIoT </h1>
+<h1 align="center"> DIoTAppET </h1>
 
 
 Para acessar o help do programa digite:
