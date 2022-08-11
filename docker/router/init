@@ -2,19 +2,8 @@
 
 sleep $(($DELAY * 3))
 
-# Configure Routes
-# ip -6 route del default
-# ip route del default
-
 if [ 'gateways' = $ROUTE ]
   then
-	#for i in $(seq 1 $GATEWAYROUTERS)
-	#do
-	# for i in $(seq 1 $GATEWAYS)
-	# do			
-	#	 ip -6 route add aaaa:`echo "obase=16;$GATEWAYSROUTER"|bc`:`echo "obase=16;$i"|bc`::/64 via dddd:`echo "obase=16;$GATEWAYSROUTER"|bc`::`echo "obase=16;"$(( 2 + $i ))""|bc`
-	# done
-	# done
 	for i in $(seq 1 $CLIENTROUTERS)
 	do		
 		ip route add 172.26.$(( $i )).0/24 via 172.24.0.$(( 1 + $GATEWAYROUTERS + $i ))
@@ -25,10 +14,7 @@ if [ 'clients' = $ROUTE ]
   then
   	for i in $(seq 1 $GATEWAYROUTERS)
 	do
-		#for j in $(seq 1 $GATEWAYS)
-		#do
-			ip route add 172.25.$(( $i )).0/24 via 172.24.0.$(( $i + 1 ))
-		#done
+		ip route add 172.25.$(( $i )).0/24 via 172.24.0.$(( $i + 1 ))
 	done
 	for i in $(seq 1 $CLIENTROUTERS)
 	do		
@@ -39,18 +25,11 @@ if [ 'clients' = $ROUTE ]
 	done
 fi
 
-#if [ 'goshimmer' = $ROUTE ]
-#  then
-#	for i in $(seq 1 $CLIENTROUTERS)
-#	do		
-#		ip -6 route add cccc:`echo "obase=16;$i"|bc`::/64 via bbbb::`echo "obase=16;"$(( 2 + $GATEWAYROUTERS + $i ))""|bc`
-#	done
-#fi
 
 echo
 ip route
 echo
 
 # Keep Alive
-tail -f /var/log/dmesg
+tail -f /dev/null
 
