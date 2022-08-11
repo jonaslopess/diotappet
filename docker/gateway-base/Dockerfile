@@ -1,4 +1,4 @@
-FROM ipv6-base
+FROM base
 
 # Install Java to run Cooja
 RUN apt-get -y install ant openjdk-8-jdk

@@ -49,33 +49,7 @@ RUN if [ $DOWNLOAD_SNAPSHOT -gt 0 ]; then \
 # using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
 #FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5dd6313be41a8c55adb
 
-FROM ubuntu:focal
-
-RUN apt-get update
-
-# Prepare environment
-RUN apt-get -y install locales
-RUN locale-gen en_US.UTF-8  
-ENV LANG en_US.UTF-8  
-ENV LANGUAGE en_US:en  
-ENV LC_ALL en_US.UTF-8
-
-# Install required packages
-RUN apt-get install -y git g++ make openssl libssl-dev
-RUN apt-get install -y libprotobuf-dev protobuf-compiler
-RUN apt-get install -y swig
-RUN apt-get install -y netcat
-RUN apt-get install -y rsyslog
-
-
-# Install tools
-RUN apt install -y iproute2
-RUN apt-get install -y net-tools
-RUN apt-get install -y iputils-ping
-RUN apt-get install -y traceroute
-RUN apt-get install -y iptables
-RUN apt-get install -y bc
-RUN apt-get install jq -y
+FROM base:latest
 
 
 EXPOSE 1888/tcp 

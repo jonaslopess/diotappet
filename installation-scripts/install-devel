@@ -1,5 +1,0 @@
-#!/bin/sh
-
-./install-docker
-./install-cooja
-./install-xia
