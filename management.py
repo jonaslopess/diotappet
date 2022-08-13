@@ -60,11 +60,11 @@ def main():
         web3 = Web3(HTTPProvider(RPC_URL))
 
         trying=0
-        while(not web3.isConnected()):
+        while(not web3.isConnected() and (trying < 20)):
+            sleep(10)
             del web3
             web3 = Web3(HTTPProvider(RPC_URL))
             trying += 1
-            sleep(10)
             #print(trying)
 
         CONTRACT_ADDRESS = False

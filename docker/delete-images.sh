@@ -1,8 +1,10 @@
 #!/bin/sh
 
-sudo docker rmi ipv6-client
-sudo docker rmi ipv6-server
-sudo docker rmi ipv6-router
-sudo docker rmi ipv6-gateway
-sudo docker rmi ipv6-base
+sudo docker rmi node
+sudo docker rmi rpc
+sudo docker rmi router
+sudo docker rmi goshimmer
+sudo docker rmi gateway
+sudo docker rmi gateway-base
 sudo docker rmi wasp-base
+sudo docker rmi base

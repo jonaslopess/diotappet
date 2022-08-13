@@ -17,11 +17,11 @@ do
     ip route add 172.25.$i.0/24 via 172.24.0.$(( 1 + $i ))
 done
 
-tmp=$(mktemp)
-jq --arg a "$TXSTREAM" '.nodeconn.address = $a' /etc/wasp_config.json > "$tmp" && mv "$tmp" /etc/wasp_config.json
+#tmp=$(mktemp)
+#jq --arg a "$TXSTREAM" '.nodeconn.address = $a' /etc/wasp_config.json > "$tmp" && mv "$tmp" /etc/wasp_config.json
 
-cd usr/bin
-wasp -c /etc/wasp_config.json &
+#cd usr/bin
+#wasp -c /etc/wasp_config.json &
 
 sleep 15
 
@@ -32,11 +32,16 @@ sleep 1
 wasp-cli set goshimmer.api $GOSHIMMERAPI
 sleep 1
 COMMITTEE=''
+#RPCIP=$((3 + $GATEWAYROUTERS + $CLIENTROUTERS))
+#wasp-cli set wasp.0.api 172.24.0.$RPCIP:9090
+#wasp-cli set wasp.0.nanomsg 172.24.0.$RPCIP:5550
+#wasp-cli set wasp.0.peering 172.24.0.$RPCIP:4000
+
 for i in $(seq 1 $CLIENTROUTERS)
 do
     for j in $(seq 1 $CLIENTS)
     do
-        z="$(( $CLIENTS * ( $i - 1 ) + $j - 1 ))"
+        z="$((( $CLIENTS * ( $i - 1 ) + $j - 1 ) ))"
         echo "Client $z"
         
         if [ $z = 0 ]
@@ -60,7 +65,7 @@ sleep 1
 wasp-cli request-funds
 
 echo "Committee $COMMITTEE"
-NODES="$(( $CLIENTROUTERS*$CLIENTS ))"
+NODES="$(( ($CLIENTROUTERS*$CLIENTS) + 1 ))"
 echo "Number of nodes $NODES"
 QUORUM="$(( $NODES*2/3+1 ))"
 echo "Quorum $QUORUM"

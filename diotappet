@@ -237,7 +237,7 @@ star_topology()
 
 	GIP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' Devnet_Goshimmer):5000
 	#GIP=goshimmer.sc.iota.org:5000
-	echo "Goshimmer Master: $GIP"
+	echo "Goshimmer Core Node: $GIP"
 	echo
 	
 	for i in $(seq 1 $CLIENTROUTERS)
@@ -280,7 +280,7 @@ star_topology()
 		done
 	done
 
-	docker exec Rpc wasp-cli peering info > nodes-info/peeringinfo_Rpc.txt
+	#docker exec Rpc wasp-cli peering info > nodes-info/peeringinfo_Rpc.txt
 
 	echo "Trust setup"
 	for x in $(seq 1 $CLIENTROUTERS)
@@ -289,13 +289,13 @@ star_topology()
 		do
 			z="$(( $CLIENTS * ( $x - 1 ) + $y ))"
 			
-			TEMP=$(head nodes-info/peeringinfo_Rpc.txt)
-			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-			docker exec Node_$z wasp-cli peering trust $PUBKEY $RPCIP:4000
+			#TEMP=$(head nodes-info/peeringinfo_Rpc.txt)
+			#PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+			#docker exec Node_$z wasp-cli peering trust $PUBKEY $RPCIP:4000
 
-			TEMP=$(head nodes-info/peeringinfo_$z.txt)
-			PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
-			docker exec Rpc wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
+			#TEMP=$(head nodes-info/peeringinfo_$z.txt)
+			#PUBKEY=$(cut -d " " -f2 <<< "$TEMP")
+			#docker exec Rpc wasp-cli peering trust $PUBKEY 172.26.$i.$(( $j+2 )):4000
 
 			for i in $(seq 1 $CLIENTROUTERS)
 			do
@@ -316,9 +316,9 @@ star_topology()
 			echo
 		done
 	done
-	echo "Rpc trust"
-	docker exec Rpc wasp-cli peering list-trusted
-	echo
+	#echo "Rpc trust"
+	#docker exec Rpc wasp-cli peering list-trusted
+	#echo
 
 	echo "Setuping chain..."
 	sleep 30
