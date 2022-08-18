@@ -65,7 +65,7 @@ sleep 1
 wasp-cli request-funds
 
 echo "Committee $COMMITTEE"
-NODES="$(( ($CLIENTROUTERS*$CLIENTS) + 1 ))"
+NODES="$(( ($CLIENTROUTERS*$CLIENTS) ))"
 echo "Number of nodes $NODES"
 QUORUM="$(( $NODES*2/3+1 ))"
 echo "Quorum $QUORUM"

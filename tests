@@ -1,0 +1,29 @@
+#!/bin/bash
+
+CONT=15
+
+for c in $(seq 1 $CONT)
+do
+    sudo ./diotappet -r 100 -c 3 -i $c start
+    sleep 1
+done
+
+sleep 1
+
+for c in $(seq 1 $CONT)
+do
+    sudo ./diotappet -r 100 -c 3 -g 3 -i $c start
+    sleep 1
+done
+
+sleep 1
+
+for c in $(seq 1 $CONT)
+do
+    sudo ./diotappet -r 100 -c 3 -g 6 -i $c start
+    sleep 1
+done
+
+sleep 1
+
+echo "Teste Finalizado!"

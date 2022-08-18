@@ -16,7 +16,7 @@ Start or stop the DIoTAppET network testing services.
 
 usage: $NAME [-c <clients_per_router>] [-g <gateways_per_router>] [-m <motes_per_gateway>]
              [-C <client_routers>] [-G <gateway_routers>] [-r <resquests>] [-l <data_size>]
-             [-t <timeout>] [-d <delay>] [-v <data_volume>] [start|stop|kill|prune|single|build|print]
+             [-t <timeout>] [-d <delay>] [-v <data_volume>] [-i <test_it>] [start|stop|kill|prune|single|build|print]
 where:
   -c Clients per Clients Routers
   -g Gateways per Gateways Routers
@@ -28,6 +28,7 @@ where:
   -t Timeout (s) # Gateway to UDP network. There is no timeout on XIA network
   -v Data Volume # Folder name
   -d Delay (s) # Base delay variable for initializations
+  -i Test iteration
 
   start   - starts the networks and containers
   stop    - stops all containers
@@ -53,12 +54,13 @@ setup()
 	DATASIZE=8
 	REQUESTS=100
 	DELAY=10
+	ITERATION=1
 
 	DATAVOLUME=diotappet
 
 	local OPTARG=$2
 
-	while getopts "c:g:C:G:m:d:t:r:v:l:a:" opt; do
+	while getopts "c:g:C:G:m:d:t:r:v:l:a:i:" opt; do
 		case $opt in
 			c)
 				CLIENTS=$OPTARG
@@ -90,6 +92,9 @@ setup()
 			l)
 				DATASIZE=$OPTARG
 				;;
+			i)
+				ITERATION=$OPTARG
+				;;
 			h)
 				help
 				;;
@@ -114,7 +119,7 @@ print_config()
 	Total="$(( $CLIENTS * $CLIENTROUTERS  +  $GATEWAYS * $GATEWAYROUTERS + 1 + $CLIENTROUTERS + $GATEWAYROUTERS ))"
 
 
-	echo
+	echo "Test iteration: $ITERATION"
 	echo "Config:"
 	echo
 	echo "Clients: $CLIENTS"
@@ -348,25 +353,6 @@ star_topology()
 	done
 }
 
-single_network()
-{
-	echo "Starting Server"
-	docker run -itd xia-server
-	echo
-	for i in `seq 1 $GATEWAYS`;
-	do
-		echo "Starting Gateway"
-		docker run -v $DATAVOLUME:/$DATAVOLUME -itd -e TIMEOUT=$TIMEOUT -e DELAY=$DELAY -e MOTES=$MOTES -e GATEWAYROUTER=1 -e GATEWAY=$i --sysctl net.ipv6.conf.all.disable_ipv6=0 --sysctl net.ipv6.conf.all.forwarding=1 --privileged --name Gateway_$i $GATEWAYIMAGE
-		echo
-	done
-	for i in `seq 1 $CLIENTS`;
-	do
-		echo "Starting Client"
-		docker run -itd -v $DATAVOLUME:/$DATAVOLUME -e CLIENT=$i -e CLIENTROUTER=1 -e DELAY=$DELAY -e MOTES=$MOTES -e GATEWAYS=$GATEWAYS -e GATEWAYROUTERS=1 -e DATASIZE=$DATASIZE -e REQUESTS=$REQUESTS --sysctl net.ipv6.conf.all.disable_ipv6=0 --name Client_$i $CLIENTIMAGE
-		echo
-	done
-}
-
 stats()
 {
 	docker stats --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}\t{{.PIDs}}\t{{.NetIO}}\t{{.BlockIO}}"
@@ -375,7 +361,7 @@ stats()
 collect()
 {
 	START_TIME=$SECONDS
-	mkdir -p "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS"
+	mkdir -p "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS i $ITERATION"
 	while [ $(docker stats --format "table {{.Name}}" --no-stream | grep -c Gateway_) != '0' ]
 	do
 		CPU=$(top -bn 2 | grep '^%Cpu' | tail -n 1 | gawk '{print $2+$4+$6}')
@@ -385,9 +371,9 @@ collect()
 		echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
 		echo
 		echo "CPU Usage: "$CPU%
-		docker stats --format "{{.Name}};{{.PIDs}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/running-stats.csv"
+		docker stats --format "{{.Name}};{{.PIDs}};{{.CPUPerc}};{{.MemPerc}};{{.MemUsage}};{{.NetIO}};{{.BlockIO}};$ELAPSED_TIME;$CPU" --no-stream >> "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS i $ITERATION/running-stats.csv"
 		for d in `docker ps -q`; do
-			docker ps --format "{{.Names}};{{.Size}}" >> "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/size-stats.csv"
+			docker ps --format "{{.Names}};{{.Size}}" >> "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS i $ITERATION/size-stats.csv"
 		done
 	done
 	print_config
@@ -395,7 +381,7 @@ collect()
 	echo
 	echo "$(($ELAPSED_TIME/60)) min $(($ELAPSED_TIME%60)) sec"
 	echo
-	sudo cp /var/lib/docker/volumes/$DATAVOLUME/_data/*.csv "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS/"
+	sudo cp /var/lib/docker/volumes/$DATAVOLUME/_data/*.csv "$DIOTAPPETDIR/logs/$HOSTNAME d $DELAY r $REQUESTS l $DATASIZE m $MOTES g $GATEWAYS G $GATEWAYROUTERS c $CLIENTS C $CLIENTROUTERS i $ITERATION/"
 	stop_all
 	prune_networks
 	prune_volumes
