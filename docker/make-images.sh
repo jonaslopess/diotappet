@@ -10,6 +10,7 @@ cd wasp-base
 
 #git clone -b stardust-vm-nodeconn --single-branch https://github.com/iotaledger/wasp.git
 git clone https://github.com/iotaledger/wasp.git
+git checkout -b develop a2b2c94d4dea8e2322bc81b6961f608d37441773
 cp Dockerfile wasp/Dockerfile
 cd wasp
 

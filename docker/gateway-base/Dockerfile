@@ -18,6 +18,8 @@ RUN apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-d
 # Copy build script
 COPY make-gateway ./make-gateway
 
+RUN chmod +x make-gateway
+
 # Run build script 
 RUN ./make-gateway
 
